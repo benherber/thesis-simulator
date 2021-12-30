@@ -9,12 +9,16 @@ classdef Tag < handle
     %TAG model
     %   Backscatter tag model of a passive Van Atta configuration
 
+%%  Public Properties
+
     properties
         x % x-position of tag relative to basestation
         y % y-position of tag relative to basestation
         z % z-position of tag relative to basestation
         mode % Frequency mode ('lo', 'hi', or 'random' bands)
     end
+
+%%  Private Properties
 
     properties (Access = private)
         curr_step % Current time-slice in modulation
@@ -24,22 +28,28 @@ classdef Tag < handle
         channel; % Propagation channel
     end
 
+%%  Dependent Properties
+
     properties (Dependent)
         distance % Tag distance from basestation
     end
 
+%%  Private Methods
     methods (Access = private)
 
         function res = delay(this, signal)
             %DELAY Delay a signal
             %   Delay a signal based on the tag's distance from the
             %   basestation.
-
+            
+            simulation_constants;
             time_delay = this.distance / physconst("Lightspeed");
-            num_samples = int32(time_delay * Fs);
-            padded = [signal; zeros(num_elements, 1)];
+            num_samples = time_delay * Fs;
+            padded = [signal; zeros(num_samples, 1)];
             res = delayseq(padded, num_samples);
         end
+
+% ----------------------------------------------------------------------- %
 
         function [f1, f0] = freq(this)
             %FREQ determine current operating frequency
@@ -67,6 +77,8 @@ classdef Tag < handle
             end
 
         end
+
+% ----------------------------------------------------------------------- %
 
         function modulated = modulate_by_fsk(this, t, carrier, data, channel)
             % MODULATE_BY_FSK a given signal.
@@ -106,6 +118,8 @@ classdef Tag < handle
 
     end
 
+%% Public Methods
+
     methods
 
         function this = Tag(x, y, z, mode, time, carrier, data, channel)
@@ -113,16 +127,18 @@ classdef Tag < handle
             %   Create a tag a specific distance from a basestation in 3D
             %   space.
 
-            this.x = x;
-            this.y = y;
-            this.z = z;
-            this.mode = mode;
-            this.curr_step = 0;
-            this.carrier = this.delay(carrier);
-            this.data = this.delay(data);
-            this.time = time;
-            this.channel = channel;
+%             this.x = x;
+%             this.y = y;
+%             this.z = z;
+%             this.mode = mode;
+%             this.curr_step = 0;
+%             this.carrier = this.delay(carrier);
+%             this.data = this.delay(data);
+%             this.time = time;
+%             this.channel = channel;
         end
+
+% ----------------------------------------------------------------------- %
 
         function res = get.distance(this)
             %DISTANCE from basestation.
@@ -132,7 +148,7 @@ classdef Tag < handle
             res = sqrt((this.x).^2 + (this.y).^2 + (this.z).^2);
         end
 
-        function [this, res] = step(this, n)
+        function res = step(this, n)
             %STEP the object 'n' simulation frame(s) forward
 
             if nargin < 2

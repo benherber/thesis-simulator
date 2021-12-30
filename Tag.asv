@@ -9,12 +9,16 @@ classdef Tag < handle
     %TAG model
     %   Backscatter tag model of a passive Van Atta configuration
 
+%%  Public Properties
+
     properties
         x % x-position of tag relative to basestation
         y % y-position of tag relative to basestation
         z % z-position of tag relative to basestation
         mode % Frequency mode ('lo', 'hi', or 'random' bands)
     end
+
+%%  Private Properties
 
     properties (Access = private)
         curr_step % Current time-slice in modulation
@@ -24,10 +28,13 @@ classdef Tag < handle
         channel; % Propagation channel
     end
 
+%%  Dependent Properties
+
     properties (Dependent)
         distance % Tag distance from basestation
     end
 
+%%  Private Methods
     methods (Access = private)
 
         function res = delay(this, signal)
@@ -40,6 +47,8 @@ classdef Tag < handle
             padded = [signal; zeros(num_elements, 1)];
             res = delayseq(padded, num_samples);
         end
+
+% ----------------------------------------------------------------------- %
 
         function [f1, f0] = freq(this)
             %FREQ determine current operating frequency
@@ -68,36 +77,10 @@ classdef Tag < handle
 
         end
 
-    end
-
-    methods
-
-        function this = Tag(x, y, z, mode, time, carrier, data, channel)
-            %TAG constructor
-            %   Create a tag a specific distance from a basestation in 3D
-            %   space.
-
-            this.x = x;
-            this.y = y;
-            this.z = z;
-            this.mode = mode;
-            this.curr_step = 0;
-            this.carrier = this.delay(carrier);
-            this.data = this.delay(data);
-            this.time = time;
-            this.channel = channel;
-        end
-
-        function res = get.distance(this)
-            %DISTANCE from basestation.
-            %   Calculate distance from basestation if it is considered to
-            %   be at the origin in 3D space
-
-            res = sqrt((this.x).^2 + (this.y).^2 + (this.z).^2);
-        end
+% ----------------------------------------------------------------------- %
 
         function modulated = modulate_by_fsk(this, t, carrier, data, channel)
-            % MODULATE_BY_FSK Modulate a given signal by frequency-shift keying.
+            % MODULATE_BY_FSK a given signal.
             %   Given carrier and data signals, modulate the carrier wave according to
             %   frequency-shift keying as a backscatter tag would through a given channel.
 
@@ -130,6 +113,38 @@ classdef Tag < handle
 
             % 3. Add channel noise headed back to basestation
             modulated = friis_path_loss(channel(f_modulation), this.distance());
+        end
+
+    end
+
+%% Public Methods
+
+    methods
+
+        function this = Tag(x, y, z, mode, time, carrier, data, channel)
+            %TAG constructor
+            %   Create a tag a specific distance from a basestation in 3D
+            %   space.
+
+            this.x = x;
+            this.y = y;
+            this.z = z;
+            this.mode = mode;
+            this.curr_step = 0;
+            this.carrier = this.delay(carrier);
+            this.data = this.delay(data);
+            this.time = time;
+            this.channel = channel;
+        end
+
+% ----------------------------------------------------------------------- %
+
+        function res = get.distance(this)
+            %DISTANCE from basestation.
+            %   Calculate distance from basestation if it is considered to
+            %   be at the origin in 3D space.
+
+            res = sqrt((this.x).^2 + (this.y).^2 + (this.z).^2);
         end
 
         function [this, res] = step(this, n)
