@@ -68,8 +68,36 @@ classdef Tag < handle
 
         end
 
+    end
+
+    methods
+
+        function this = Tag(x, y, z, mode, time, carrier, data, channel)
+            %TAG constructor
+            %   Create a tag a specific distance from a basestation in 3D
+            %   space.
+
+            this.x = x;
+            this.y = y;
+            this.z = z;
+            this.mode = mode;
+            this.curr_step = 0;
+            this.carrier = this.delay(carrier);
+            this.data = this.delay(data);
+            this.time = time;
+            this.channel = channel;
+        end
+
+        function res = get.distance(this)
+            %DISTANCE from basestation.
+            %   Calculate distance from basestation if it is considered to
+            %   be at the origin in 3D space
+
+            res = sqrt((this.x).^2 + (this.y).^2 + (this.z).^2);
+        end
+
         function modulated = modulate_by_fsk(this, t, carrier, data, channel)
-            % MODULATE_BY_FSK a given signal.
+            % MODULATE_BY_FSK Modulate a given signal by frequency-shift keying.
             %   Given carrier and data signals, modulate the carrier wave according to
             %   frequency-shift keying as a backscatter tag would through a given channel.
 
@@ -102,34 +130,6 @@ classdef Tag < handle
 
             % 3. Add channel noise headed back to basestation
             modulated = friis_path_loss(channel(f_modulation), this.distance());
-        end
-
-    end
-
-    methods
-
-        function this = Tag(x, y, z, mode, time, carrier, data, channel)
-            %TAG constructor
-            %   Create a tag a specific distance from a basestation in 3D
-            %   space.
-
-            this.x = x;
-            this.y = y;
-            this.z = z;
-            this.mode = mode;
-            this.curr_step = 0;
-            this.carrier = this.delay(carrier);
-            this.data = this.delay(data);
-            this.time = time;
-            this.channel = channel;
-        end
-
-        function res = get.distance(this)
-            %DISTANCE from basestation.
-            %   Calculate distance from basestation if it is considered to
-            %   be at the origin in 3D space.
-
-            res = sqrt((this.x).^2 + (this.y).^2 + (this.z).^2);
         end
 
         function [this, res] = step(this, n)
