@@ -20,7 +20,7 @@ classdef Tag < handle
 
 %%  Private Properties
 
-    properties (Access = private)
+    properties %(Access = private)
         curr_step % Current time-slice in modulation
         carrier % Delayed carrier signal
         data % Delayed data signal
@@ -45,14 +45,16 @@ classdef Tag < handle
             simulation_constants;
             time_delay = this.distance / physconst("Lightspeed");
             num_samples = time_delay * Fs;
-            padded = [signal; zeros(num_samples, 1)];
-            res = delayseq(padded, num_samples);
+            res = [zeros(int32(num_samples), 1).', signal];
         end
 
 % ----------------------------------------------------------------------- %
 
         function [f1, f0] = freq(this)
             %FREQ determine current operating frequency
+
+            simulation_constants
+
             switch this.mode
                 case "lo"
                     f1 = FB1;
@@ -99,8 +101,8 @@ classdef Tag < handle
             sq_one = square((FB1) * 2 * pi * t);
             sq_zero = square((FB0) * 2 * pi * t);
             [f1, f0] = this.freq();
-            all_ones = sq_one .* vanatta_gain(noisy_carrier, NUM_ELEMENTS, FC, f1);
-            all_zeros = sq_zero .* vanatta_gain(noisy_carrier, NUM_ELEMENTS, FC, f0);
+            all_ones = sq_one .* noisy_carrier .* vanatta_gain(1, NUM_ELEMENTS, FC, f1);
+            all_zeros = sq_zero .* noisy_carrier .* vanatta_gain(1, NUM_ELEMENTS, FC, f0);
 
             for idx = 1:length(f_modulation)
 
@@ -113,7 +115,8 @@ classdef Tag < handle
             end
 
             % 3. Add channel noise headed back to basestation
-            modulated = friis_path_loss(channel(f_modulation), this.distance());
+            noisy_fmod = channel(f_modulation);
+            modulated = friis_path_loss(noisy_fmod, this.distance());
         end
 
     end
@@ -127,15 +130,15 @@ classdef Tag < handle
             %   Create a tag a specific distance from a basestation in 3D
             %   space.
 
-%             this.x = x;
-%             this.y = y;
-%             this.z = z;
-%             this.mode = mode;
-%             this.curr_step = 0;
-%             this.carrier = this.delay(carrier);
-%             this.data = this.delay(data);
-%             this.time = time;
-%             this.channel = channel;
+            this.x = x;
+            this.y = y;
+            this.z = z;
+            this.mode = mode;
+            this.curr_step = 0;
+            this.carrier = this.delay(carrier);
+            this.data = this.delay(data);
+            this.time = time;
+            this.channel = channel;
         end
 
 % ----------------------------------------------------------------------- %
@@ -150,23 +153,25 @@ classdef Tag < handle
 
         function res = step(this, n)
             %STEP the object 'n' simulation frame(s) forward
+            
+            simulation_constants
 
             if nargin < 2
                 n = 1;
             end
 
-            start_pt = this.curr_step * SIMSTEP_SIZE;
-            stop_pt = start_pt + (n * SIMSTEP_SIZE) - 1;
+            start_pt = uint64(this.curr_step * SIMSTEP_SIZE + 1);
+            stop_pt = uint64(start_pt + (n * SIMSTEP_SIZE) - 1);
 
             if stop_pt > length(this.time)
                 error("SIMULATION RAN OUT OF BOUNDS");
             end
 
-            this.curr_step = this.curr_step + n;
             cut_time = this.time(start_pt:stop_pt);
             cut_carrier = this.carrier(start_pt:stop_pt);
             cut_data = this.data(start_pt:stop_pt);
             res = this.modulate_by_fsk(cut_time, cut_carrier, cut_data, this.channel);
+            this.curr_step = this.curr_step + n;
         end
 
     end

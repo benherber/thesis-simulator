@@ -14,22 +14,40 @@ classdef Simulator < handle
         tags
         curr_step
         total_steps
+        time
+        carrier
+        channel
     end
 
     methods
-        function this = Simulator(tags, tag_modes, channel)
+        function this = Simulator(tags, tag_modes, channel, num_syms)
             %Simulator constructor
             %   Initialize and start simulator.
+
+            simulation_constants
+
+            % Get time
+            this.time = (0:1/Fs:(TOTAL_TIME - 1/Fs));
+            
+            % Carrier signal
+            this.carrier = A * sin(complex(2 * pi * FC * this.time));
+
+            this.channel = channel;
 
             % Init tags
             tag_sz = size(tags);
             this.tags = zeros(1, tag_sz(2));
             for idx = 1:numel(this.tags)
+                % Get random data signal
+                bits = randi([0, 1], num_syms, 1);
+                data = repelem(bits, SYMB_SIZE).'; 
+
                 this.tags(idx) = Tag(tags(1, idx), tags(2, idx), tags(3, idx), ...
-                    tag_modes(idx), )
+                    tag_modes(idx), this.time, this.carrier, data, this.channel);
             end
 
             this.curr_step = 0;
+            this.total_steps = num_syms;
         end
 
         function res = step(this)

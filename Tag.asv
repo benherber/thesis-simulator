@@ -41,10 +41,11 @@ classdef Tag < handle
             %DELAY Delay a signal
             %   Delay a signal based on the tag's distance from the
             %   basestation.
-
+            
+            simulation_constants;
             time_delay = this.distance / physconst("Lightspeed");
-            num_samples = int32(time_delay * Fs);
-            padded = [signal; zeros(num_elements, 1)];
+            num_samples = time_delay * Fs;
+            padded = [signal; zeros(num_samples, 1)];
             res = delayseq(padded, num_samples);
         end
 
@@ -147,7 +148,7 @@ classdef Tag < handle
             res = sqrt((this.x).^2 + (this.y).^2 + (this.z).^2);
         end
 
-        function [this, res] = step(this, n)
+        function res = step(this, n)
             %STEP the object 'n' simulation frame(s) forward
 
             if nargin < 2
