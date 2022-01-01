@@ -21,7 +21,7 @@ classdef Simulator < handle
 
     methods
         function this = Simulator(tags, tag_modes, channel, num_syms)
-            %Simulator constructor
+            %SIMULATOR constructor
             %   Initialize and start simulator.
 
             simulation_constants
@@ -30,7 +30,7 @@ classdef Simulator < handle
             this.time = (0:1/Fs:(TOTAL_TIME - 1/Fs));
             
             % Carrier signal
-            this.carrier = A * sin(complex(2 * pi * FC * this.time));
+            this.carrier = complex(A * sin(complex(2 * pi * FC * this.time)));
 
             this.channel = channel;
 
@@ -47,7 +47,7 @@ classdef Simulator < handle
             end
 
             this.curr_step = 0;
-            this.total_steps = num_syms;
+            this.total_steps = num_syms * SIM_SYMB_RATIO;
         end
 
         function res = step(this)
@@ -55,7 +55,7 @@ classdef Simulator < handle
             %   Step one 1us frame in time through the simulation for the 
             %   entire system of tags.
 
-            if this.curr_step == this.total_steps
+            if this.curr_step > this.total_steps
                 error("ATTEMPTED TO SIMULATE TOO MANY STEPS");
             end
 

@@ -13,7 +13,9 @@ NUM_SYMBS = 100; % Total number of symbols in simulation
 SYMB_FREQ = 100e3; % Frequency of symbols
 SYMB_SIZE = (1 / SYMB_FREQ) * Fs; % Samples per symbol
 
-SIMSTEP_FREQ = SYMB_FREQ * 10; % Frequency of simulation-steps
+SIM_SYMB_RATIO = 10; % Simulation steps per symbol window
+
+SIMSTEP_FREQ = SYMB_FREQ * SIM_SYMB_RATIO; % Frequency of simulation-steps
 SIMSTEP_SIZE = (1 / SIMSTEP_FREQ) * Fs; % Number of samples per simulation-step
 
 TOTAL_TIME = NUM_SYMBS * (1 / SYMB_FREQ); % Total simulation time
