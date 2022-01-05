@@ -20,12 +20,13 @@ classdef Tag < handle
 
 %%  Private Properties
 
-    properties %(Access = private)
+    properties (GetAccess = public, SetAccess = private)
         curr_step % Current time-slice in modulation
         carrier % Delayed carrier signal
         data % Delayed data signal
         time % Time signal
-        channel; % Propagation channel
+        channel % Propagation channel
+        params % Simulation parameters
     end
 
 %%  Dependent Properties
@@ -42,9 +43,8 @@ classdef Tag < handle
             %   Delay a signal based on the tag's distance from the
             %   basestation.
             
-            simulation_constants;
             time_delay = this.distance / physconst("Lightspeed");
-            num_samples = time_delay * Fs;
+            num_samples = time_delay * this.params.Fs;
             res = [zeros(int32(num_samples), 1).', signal];
         end
 
@@ -53,25 +53,23 @@ classdef Tag < handle
         function [f1, f0] = freq(this)
             %FREQ determine current operating frequency
 
-            simulation_constants
-
             switch this.mode
                 case "lo"
-                    f1 = FB1;
-                    f0 = FB0;
+                    f1 = this.params.fsk_channel0.f1;
+                    f0 = this.params.fsk_channel0.f0;
 
                 case "hi"
-                    f1 = FB11;
-                    f0 = FB01;
+                    f1 = this.params.fsk_channel1.f1;
+                    f0 = this.params.fsk_channel1.f0;
 
                 case "random"
 
                     if logical(randi([0, 1]))
-                        f1 = FB1;
-                        f0 = FB0;
+                        f1 = this.params.fsk_channel0.f1;
+                        f0 = this.params.fsk_channel0.f0;
                     else
-                        f1 = FB11;
-                        f0 = FB01;
+                        f1 = this.params.fsk_channel1.f1;
+                        f0 = this.params.fsk_channel1.f0;
                     end
 
                 otherwise
@@ -87,22 +85,20 @@ classdef Tag < handle
             %   Given carrier and data signals, modulate the carrier wave according to
             %   frequency-shift keying as a backscatter tag would through a given channel.
 
-            % Load Contants
-
-            simulation_constants
-
             % Frequency modulation
 
             % 1. Add channel noise headed to tag
-            noisy_carrier = friis_path_loss(channel(carrier), this.distance());
+            noisy_carrier = carrier;%friis_path_loss(channel(carrier), this.distance, this.params);
 
             % 2. Modulate
             f_modulation = zeros(size(data));
-            sq_one = square((FB1) * 2 * pi * t);
-            sq_zero = square((FB0) * 2 * pi * t);
             [f1, f0] = this.freq();
-            all_ones = sq_one .* noisy_carrier .* vanatta_gain(1, NUM_ELEMENTS, FC, f1);
-            all_zeros = sq_zero .* noisy_carrier .* vanatta_gain(1, NUM_ELEMENTS, FC, f0);
+            sq_one = square((f1) * 2 * pi * t);
+            sq_zero = square((f0) * 2 * pi * t);
+            all_ones = sq_one .* noisy_carrier * ...
+                vanatta_gain(this.params.num_elements, this.params.Fc, f1);
+            all_zeros = sq_zero .* noisy_carrier * ...
+                vanatta_gain(this.params.num_elements, this.params.Fc, f0);
 
             for idx = 1:length(f_modulation)
 
@@ -115,8 +111,7 @@ classdef Tag < handle
             end
 
             % 3. Add channel noise headed back to basestation
-            noisy_fmod = channel(f_modulation);
-            modulated = friis_path_loss(noisy_fmod, this.distance());
+            modulated = f_modulation; %friis_path_loss(channel(f_modulation), this.distance, this.params);
         end
 
     end
@@ -125,11 +120,12 @@ classdef Tag < handle
 
     methods
 
-        function this = Tag(x, y, z, mode, time, carrier, data, channel)
+        function this = Tag(x, y, z, mode, time, carrier, data, channel, sim_params)
             %TAG constructor
             %   Create a tag a specific distance from a basestation in 3D
             %   space.
-
+            
+            this.params = sim_params;
             this.x = x;
             this.y = y;
             this.z = z;
@@ -139,6 +135,7 @@ classdef Tag < handle
             this.data = this.delay(data);
             this.time = time;
             this.channel = channel;
+
         end
 
 % ----------------------------------------------------------------------- %
@@ -148,20 +145,18 @@ classdef Tag < handle
             %   Calculate distance from basestation if it is considered to
             %   be at the origin in 3D space.
 
-            res = sqrt((this.x).^2 + (this.y).^2 + (this.z).^2);
+            res = sqrt((this.x)^2 + (this.y)^2 + (this.z)^2);
         end
 
         function res = step(this, n)
             %STEP the object 'n' simulation frame(s) forward
-            
-            simulation_constants
 
             if nargin < 2
                 n = 1;
             end
 
-            start_pt = uint64(this.curr_step * SIMSTEP_SIZE + 1);
-            stop_pt = uint64(start_pt + (n * SIMSTEP_SIZE) - 1);
+            start_pt = uint64(this.curr_step * this.params.simstep_sz + 1);
+            stop_pt = uint64(start_pt + (n * this.params.simstep_sz) - 1);
 
             if stop_pt > length(this.time)
                 error("SIMULATION RAN OUT OF BOUNDS");

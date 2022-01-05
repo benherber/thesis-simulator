@@ -5,7 +5,7 @@
 % Date   : Fall 2021            %
 % ----------------------------- %
 
-function resE = vanatta_gain(incoming_E, num_elements, fc, fb)
+function resE = vanatta_gain(num_elements, fc, fb)
     tmp = 0;
     lambda_c = physconst("Lightspeed") / fc;
     lambda_b = physconst("Lightspeed") / fb;
@@ -15,5 +15,5 @@ function resE = vanatta_gain(incoming_E, num_elements, fc, fb)
         tmp = tmp + exp(1i * (find_phase(0, lambda_b, spacing, (idx - 1)) - find_phase(0, lambda_c, spacing, (idx - 1))));
     end
 
-    resE = incoming_E * tmp;
+    resE = tmp;
 end

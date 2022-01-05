@@ -10,27 +10,28 @@ classdef Simulator < handle
     %   Simulator of system of backscatter tags communcating with a 
     %   basestation.
 
-    properties (Access = private)
+    properties (GetAccess = public, SetAccess = private)
         tags
         curr_step
         total_steps
         time
         carrier
         channel
+        params
     end
 
     methods
-        function this = Simulator(tags, tag_modes, channel, num_syms)
+        function this = Simulator(tags, tag_modes, channel, num_syms, sim_params)
             %SIMULATOR constructor
             %   Initialize and start simulator.
 
-            simulation_constants
+            this.params = sim_params;
 
             % Get time
-            this.time = (0:1/Fs:(TOTAL_TIME - 1/Fs));
+            this.time = (0:(1 / this.params.Fs):(this.params.total_time - (1 / this.params.Fs)));
             
             % Carrier signal
-            this.carrier = complex(A * sin(complex(2 * pi * FC * this.time)));
+            this.carrier = complex(this.params.amplitude * sin(complex(2 * pi * this.params.Fc * this.time)));
 
             this.channel = channel;
 
@@ -40,14 +41,14 @@ classdef Simulator < handle
             for idx = 1:numel(this.tags)
                 % Get random data signal
                 bits = randi([0, 1], num_syms, 1);
-                data = repelem(bits, SYMB_SIZE).'; 
+                data = repelem(bits, this.params.symb_sz).'; 
 
                 this.tags(idx) = Tag(tags(1, idx), tags(2, idx), tags(3, idx), ...
                     tag_modes(idx), this.time, this.carrier, data, this.channel);
             end
 
             this.curr_step = 0;
-            this.total_steps = num_syms * SIM_SYMB_RATIO;
+            this.total_steps = num_syms * this.params.sim_symb_ratio;
         end
 
         function res = step(this)
@@ -59,8 +60,7 @@ classdef Simulator < handle
                 error("ATTEMPTED TO SIMULATE TOO MANY STEPS");
             end
 
-            simulation_constants
-            res = zeros(1, Fs * SIMSTEP);
+            res = zeros(1, this.params.simstep_sz);
 
             for idx = 1:numel(this.tags)
                 curr = this.tags(idx);

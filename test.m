@@ -1,26 +1,51 @@
 clear; clc;
 
-simulation_constants
+consts_struct = struct( ...
+    "Fc", 2.4e9, ...
+    "Fb_base", 75e3, ...
+    "Fb_step", 25e3, ...
+    "fs_granularity", 3, ...
+    "num_symbs", 100, ...
+    "symb_freq", 100e3, ...
+    "sim_sym_ratio", 10, ...
+    "amplitude", 0.1, ...
+    "num_elements", 4 ...
+    );
+consts_cell = struct2cell(consts_struct);
+simconsts = SimulationConstants(consts_cell{:});
 
 % Get time
-time = (0:1/Fs:(TOTAL_TIME - 1/Fs));
+time = (0:(1 / simconsts.Fs):(simconsts.total_time - (1 / simconsts.Fs)));
 
 % Carrier signal
-carrier = complex(A * sin(complex(2 * pi * FC * time)));
+carrier = complex(simconsts.amplitude * sin(complex(2 * pi * simconsts.Fc * time)));
 
-channel = @(given) awgn(given, 10, "measured", "linear");
+% channel = @(given) awgn(given, 10, "measured", "linear");
+channel = @(given) given;
 
 % Get random data signal
-bits = randi([0, 1], NUM_SYMBS, 1);
-data = repelem(bits, SYMB_SIZE).'; 
+bits = randi([0, 1], simconsts.num_symbs, 1);
+data = repelem(bits, simconsts.symb_sz).'; 
 
-tag = Tag(1, 1, 1, "lo", time, carrier, data, channel);
+tag = Tag(0, 0, 0, "lo", time, carrier, data, channel, simconsts);
 
-f_modulation = [];
-for idx = 1:(NUM_SYMBS * 10)
-    f_modulation = [f_modulation, tag.step()];
+modded_steps = zeros(simconsts.simstep_sz, (simconsts.num_symbs * simconsts.sim_sym_ratio));
+for idx = 1:(simconsts.num_symbs * simconsts.sim_sym_ratio)
+    modded_steps(:, idx) = tag.step();
+end
+f_modulation = modded_steps(:);
+
+%% Demodulate
+modded_symbs = reshape(modded_steps, [(numel(modded_steps) / simconsts.num_symbs), simconsts.num_symbs]);
+
+res_bits = zeros(numel(bits), 1);
+symb_times = reshape(time, [(numel(modded_steps) / simconsts.num_symbs), simconsts.num_symbs]);
+for idx = 1:simconsts.num_symbs
+    res_bits(idx) = fsk_demodulate(modded_symbs(:, idx), symb_times(:, idx), ...
+        simconsts.fsk_channel0.f1, simconsts.fsk_channel0.f1);
 end
 
+ber = biterr(bits, res_bits);
 %% Calculate FFT
 
 nfft = 100000000;
@@ -30,7 +55,7 @@ f_fft = fftshift(fft(f_modulation, nfft));
 carrier_fft = fftshift(fft(carrier, nfft));
 
 % Frequency
-f = Fs * (-nfft/2 : nfft/2 - 1) / nfft;
+f = simconsts.Fs * (-nfft/2 : nfft/2 - 1) / nfft;
 scaled_f = (f - 2.4e9) / 1e3;
 
 %% FFT Plot
