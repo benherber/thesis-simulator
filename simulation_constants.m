@@ -9,7 +9,7 @@ WAVELEN = physconst("Lightspeed") / FC; % Wavelength of Carrier
 GRANULARITY = 3; % Sampling Granularity
 Fs = FC * GRANULARITY; % Sampling frequency
 
-NUM_SYMBS = 100; % Total number of symbols in simulation
+NUM_SYMBS = 10; % Total number of symbols in simulation
 SYMB_FREQ = 100e3; % Frequency of symbols
 SYMB_SIZE = (1 / SYMB_FREQ) * Fs; % Samples per symbol
 

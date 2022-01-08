@@ -20,30 +20,36 @@ time = (0:(1 / simconsts.Fs):(simconsts.total_time - (1 / simconsts.Fs)));
 % Carrier signal
 carrier = complex(simconsts.amplitude * sin(complex(2 * pi * simconsts.Fc * time)));
 
-% channel = @(given) awgn(given, 10, "measured", "linear");
-channel = @(given) given;
+channel = @(given) awgn(given, 10, "measured", "linear");
+% channel = @(given) given;
 
 % Get random data signal
 bits = randi([0, 1], simconsts.num_symbs, 1);
 data = repelem(bits, simconsts.symb_sz).'; 
 
-tag = Tag(0, 0, 0, "lo", time, carrier, data, channel, simconsts);
+tag = Tag(0, 0, 0, TagType.FSK_LO, time, carrier, data, channel, simconsts);
 
 modded_steps = zeros(simconsts.simstep_sz, (simconsts.num_symbs * simconsts.sim_sym_ratio));
 for idx = 1:(simconsts.num_symbs * simconsts.sim_sym_ratio)
     modded_steps(:, idx) = tag.step();
 end
 f_modulation = modded_steps(:);
+% modded_steps = tag.step();
+% f_modulation = modded_steps;
+% [~, f_modulation] = modulate_by_fsk(time, carrier, data, channel);
 
 %% Demodulate
-modded_symbs = reshape(modded_steps, [(numel(modded_steps) / simconsts.num_symbs), simconsts.num_symbs]);
+modded_symbs = reshape(modded_steps, [simconsts.symb_sz, simconsts.num_symbs]);
 
 res_bits = zeros(numel(bits), 1);
-symb_times = reshape(time, [(numel(modded_steps) / simconsts.num_symbs), simconsts.num_symbs]);
-for idx = 1:simconsts.num_symbs
-    res_bits(idx) = fsk_demodulate(modded_symbs(:, idx), symb_times(:, idx), ...
-        simconsts.fsk_channel0.f1, simconsts.fsk_channel0.f1);
+symb_times = reshape(time, [simconsts.symb_sz, simconsts.num_symbs]);
+carrier_split = reshape(carrier, [simconsts.symb_sz, simconsts.num_symbs]);
+parfor idx = 1:simconsts.num_symbs
+    res_bits(idx) = fsk_demodulate(modded_symbs(:, idx), carrier_split(:, idx), symb_times(:, idx), ...
+        simconsts.fsk_channel0.f1, simconsts.fsk_channel0.f0, simconsts);
 end
+% res_bits = fsk_demodulate(f_modulation, carrier, time, ...
+%         simconsts.fsk_channel0.f1, simconsts.fsk_channel0.f0, simconsts);
 
 ber = biterr(bits, res_bits);
 %% Calculate FFT

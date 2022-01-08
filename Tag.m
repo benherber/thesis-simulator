@@ -53,27 +53,26 @@ classdef Tag < handle
         function [f1, f0] = freq(this)
             %FREQ determine current operating frequency
 
-            switch this.mode
-                case "lo"
+            if this.mode == TagType.FSK_LO
+                f1 = this.params.fsk_channel0.f1;
+                f0 = this.params.fsk_channel0.f0;
+
+            elseif this.mode == TagType.FSK_HI
+                f1 = this.params.fsk_channel1.f1;
+                f0 = this.params.fsk_channel1.f0;
+
+            elseif this.mode == TagType.FSK_RANDOM
+
+                if logical(randi([0, 1]))
                     f1 = this.params.fsk_channel0.f1;
                     f0 = this.params.fsk_channel0.f0;
-
-                case "hi"
+                else
                     f1 = this.params.fsk_channel1.f1;
                     f0 = this.params.fsk_channel1.f0;
+                end
 
-                case "random"
-
-                    if logical(randi([0, 1]))
-                        f1 = this.params.fsk_channel0.f1;
-                        f0 = this.params.fsk_channel0.f0;
-                    else
-                        f1 = this.params.fsk_channel1.f1;
-                        f0 = this.params.fsk_channel1.f0;
-                    end
-
-                otherwise
-                    error("UNSUPPORTED MODE");
+            else
+                error("UNSUPPORTED MODE");
             end
 
         end
@@ -88,7 +87,7 @@ classdef Tag < handle
             % Frequency modulation
 
             % 1. Add channel noise headed to tag
-            noisy_carrier = carrier;%friis_path_loss(channel(carrier), this.distance, this.params);
+            noisy_carrier = friis_path_loss(channel(carrier), this.distance, this.params);
 
             % 2. Modulate
             f_modulation = zeros(size(data));
@@ -96,9 +95,9 @@ classdef Tag < handle
             sq_one = square((f1) * 2 * pi * t);
             sq_zero = square((f0) * 2 * pi * t);
             all_ones = sq_one .* noisy_carrier * ...
-                vanatta_gain(this.params.num_elements, this.params.Fc, f1);
+                vanatta_gain(this.params.num_elements, this.params.Fc, this.params.Fc + f1);
             all_zeros = sq_zero .* noisy_carrier * ...
-                vanatta_gain(this.params.num_elements, this.params.Fc, f0);
+                vanatta_gain(this.params.num_elements, this.params.Fc, this.params.Fc + f0);
 
             for idx = 1:length(f_modulation)
 
@@ -111,7 +110,7 @@ classdef Tag < handle
             end
 
             % 3. Add channel noise headed back to basestation
-            modulated = f_modulation; %friis_path_loss(channel(f_modulation), this.distance, this.params);
+            modulated = friis_path_loss(channel(f_modulation), this.distance, this.params);
         end
 
     end
@@ -131,8 +130,8 @@ classdef Tag < handle
             this.z = z;
             this.mode = mode;
             this.curr_step = 0;
-            this.carrier = this.delay(carrier);
-            this.data = this.delay(data);
+            this.carrier = carrier; %this.delay(carrier);
+            this.data = data; %this.delay(data);
             this.time = time;
             this.channel = channel;
 
@@ -166,6 +165,7 @@ classdef Tag < handle
             cut_carrier = this.carrier(start_pt:stop_pt);
             cut_data = this.data(start_pt:stop_pt);
             res = this.modulate_by_fsk(cut_time, cut_carrier, cut_data, this.channel);
+%             res = this.modulate_by_fsk(this.time, this.carrier, this.data, this.channel);
             this.curr_step = this.curr_step + n;
         end
 
