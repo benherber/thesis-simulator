@@ -21,7 +21,7 @@ time = (0:(1 / simconsts.Fs):(simconsts.total_time - (1 / simconsts.Fs)));
 carrier = complex(simconsts.amplitude * sin(complex(2 * pi * simconsts.Fc * time)));
 
 % Channel Definition
-channel = @(given) awgn(given, 0, "measured", "linear");
+channel = @(given) given;%awgn(given, 20, "measured", "linear");
 
 % Get random data signal
 bits = randi([0, 1], simconsts.num_symbs, 1);
@@ -78,6 +78,44 @@ parfor idx = 1:simconsts.num_symbs
 end
 
 fsk_ber = biterr(bits, res_bits);
+
+%% Dual-Channel FSK Tags
+
+% Get random data signals
+bits1 = randi([0, 1], simconsts.num_symbs, 1);
+data1 = repelem(bits1, simconsts.symb_sz).'; 
+bits2 = randi([0, 1], simconsts.num_symbs, 1);
+data2 = repelem(bits2, simconsts.symb_sz).'; 
+
+tag1 = Tag(0, 0, 0, TagType.FSK_LO, time, carrier, data1, channel, simconsts);
+tag2 = Tag(0, 0, 0, TagType.FSK_HI, time, carrier, data2, channel, simconsts);
+
+% Modulate
+modded_steps = zeros(simconsts.simstep_sz, (simconsts.num_symbs * simconsts.sim_sym_ratio));
+for idx = 1:(simconsts.num_symbs * simconsts.sim_sym_ratio)
+    modded_steps(:, idx) = tag1.step() + tag2.step();
+end
+
+% Demodulate
+modded_symbs = reshape(modded_steps, [simconsts.symb_sz, simconsts.num_symbs]);
+
+res_bits1 = zeros(numel(bits1), 1);
+res_bits2 = zeros(numel(bits2), 1);
+symb_times = reshape(time, [simconsts.symb_sz, simconsts.num_symbs]);
+carrier_split = reshape(carrier, [simconsts.symb_sz, simconsts.num_symbs]);
+channel0f1 = simconsts.fsk_channel0.f1;
+channel0f0 = simconsts.fsk_channel0.f0;
+channel1f1 = simconsts.fsk_channel1.f1;
+channel1f0 = simconsts.fsk_channel1.f0;
+parfor idx = 1:simconsts.num_symbs
+    res_bits1(idx) = Tag.fsk_demodulate(modded_symbs(:, idx), carrier_split(:, idx), ... 
+        symb_times(:, idx), channel0f1, channel0f0);
+    res_bits2(idx) = Tag.fsk_demodulate(modded_symbs(:, idx), carrier_split(:, idx), ... 
+        symb_times(:, idx), channel1f1, channel1f0);
+end
+
+dualchannel_fsk_ber1 = biterr(bits1, res_bits1);
+dualchannel_fsk_ber2 = biterr(bits2, res_bits2);
 
 %% Calculate FFT
 % 
