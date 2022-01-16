@@ -11,14 +11,14 @@ classdef Simulator < handle
     %   basestation.
 
     properties (GetAccess = public, SetAccess = private)
-        tags
-        tag_preambles
-        curr_step
-        total_steps
-        time
-        carrier
-        channel
-        tag_delays
+        tags (:, 1) Tag
+        tag_preambles (:, 8) {mustBeFinite}
+        curr_step int64
+        total_steps int64
+        time (1, :) {mustBeFinite, mustBeReal}
+        carrier (1, :) {mustBeFinite}
+        channel function_handle
+        tag_delays (:, 1)
         params SimulationConstants
     end
 
@@ -41,20 +41,28 @@ classdef Simulator < handle
             % Init tags
             tag_sz = size(tags);
             tag_sz = tag_sz(2);
-            this.tags = cell(1, tag_sz);
-            for idx = 1:numel(this.tags)
+            for idx = 1:tag_sz
                 % Get random data signal
                 bits = randi([0, 1], this.params.num_symbs, 1);
                 data = repelem(bits, this.params.symb_sz).';
 
-                this.tags{idx} = Tag(tags(1, idx), tags(2, idx), tags(3, idx), ...
-                    tag_modes(idx), this.time, this.carrier, data, this.channel, this.params);
+                this.tags = [this.tags, Tag(tags(1, idx), tags(2, idx), tags(3, idx), ...
+                    tag_modes(idx), this.time, this.carrier, data, this.channel, this.params)];
             end
-            this.tag_preambles = zeros(tag_sz, strlength(dec2bin(tag_sz - 1)));
+
+            % Init Tag ID's
+            this.tag_preambles = zeros(tag_sz, 8);
+            for idx = (1:tag_sz)
+                tag_id = dec2bin(idx - 1, 8);
+                this.tag_preambles(idx, :) = double(tag_id - '0');
+            end
+
+            % Init Tag Delay Vector
             this.tag_delays = NaN(tag_sz, 1);
 
-            this.curr_step = 0;
-            this.total_steps = this.params.num_symbs * this.params.sim_sym_ratio;
+            % Init Simulation Time
+            this.curr_step = int64(0);
+            this.total_steps = int64(this.params.num_symbs * this.params.sim_sym_ratio);
 
             gcp;
         end
@@ -79,9 +87,7 @@ classdef Simulator < handle
         end
 
         function res = auto_align(this, signal)
-            num_
-            if (this.curr_step * this.params.sim_sym_ratio) > ...
-                    strlength(dec2bin(length(this.tags)))
+            if (this.curr_step * this.params.sim_sym_ratio) > 8
                 res = false;
                 return;
             end
@@ -96,7 +102,7 @@ classdef Simulator < handle
             thetags = this.tags;
             delays = this.tag_delays;
             parfor idx = 1:length(this.tags)
-                preamble = repelem(tag_preams(idx), symb_size).';
+                preamble = repelem(tag_preams(idx, :), symb_size).';
                 if thetags{idx}.mode == TagType.OOK
                     modded_preamble = Tag.modulate_by_ook(carr, preamble, opts);
                 else
@@ -123,48 +129,48 @@ classdef Simulator < handle
             end
             this.tag_delays = delays;
 
-                res = isempty(this.tag_delays(isnan(this.tag_delays)));
-            end
-        end
-
-        methods (Static, Access = public)
-            function gray = dec2gray(num)
-                %DEC2GRAY conversion.
-                %   Convert a decimal number to a gray encoding. Return array.
-
-                arguments
-                    num {mustBeFinite, mustBePositive}
-                end
-
-                % Convert to binary
-                bits = dec2bin(num);
-
-                % Convert to Gray
-                gray = zeros(size(bits), "logical");
-                gray(1) = bits(1);
-                for idx = (2:numel(bits))
-                    gray(idx) = xor(logical(str2double(bits(idx - 1))), ...
-                        logical(str2double(bits(idx))));
-                end
-            end
-
-            function dec = gray2dec(gray)
-                %GRAY2DEC conversion.
-                %   Convert a decimal number to a gray encoding. Return array.
-
-                arguments
-                    gray {mustBeFinite}
-                end
-
-                % Convert to Gray
-                bits = zeros(size(gray), "like", gray);
-                bits(1) = gray(1);
-                for idx = (2:length(gray))
-                    bits(idx) = xor(bits(idx - 1), gray(idx));
-                end
-
-                % Convert to Decimal
-                dec = bin2dec(num2str(bits));
-            end
+            res = isempty(this.tag_delays(isnan(this.tag_delays)));
         end
     end
+
+    methods (Static, Access = public)
+        function gray = dec2gray(num)
+            %DEC2GRAY conversion.
+            %   Convert a decimal number to a gray encoding. Return array.
+
+            arguments
+                num {mustBeFinite, mustBePositive}
+            end
+
+            % Convert to binary
+            bits = dec2bin(num);
+
+            % Convert to Gray
+            gray = zeros(size(bits), "logical");
+            gray(1) = bits(1);
+            for idx = (2:numel(bits))
+                gray(idx) = xor(logical(str2double(bits(idx - 1))), ...
+                    logical(str2double(bits(idx))));
+            end
+        end
+
+        function dec = gray2dec(gray)
+            %GRAY2DEC conversion.
+            %   Convert a decimal number to a gray encoding. Return array.
+
+            arguments
+                gray {mustBeFinite}
+            end
+
+            % Convert to Gray
+            bits = zeros(size(gray), "like", gray);
+            bits(1) = gray(1);
+            for idx = (2:length(gray))
+                bits(idx) = xor(bits(idx - 1), gray(idx));
+            end
+
+            % Convert to Decimal
+            dec = bin2dec(num2str(bits));
+        end
+    end
+end

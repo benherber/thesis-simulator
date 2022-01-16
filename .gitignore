@@ -1,0 +1,6 @@
+*.asv
+venv
+.history
+python*
+venv
+.vscode
