@@ -40,7 +40,7 @@ classdef SimulationConstants < handle
 
             this.Fc = Fc;
             this.fsk_channel0 = struct("f0", Fb_base, "f1", Fb_base + 1 * Fb_step);
-            this.fsk_channel1 = struct("f0", Fb_base + 2 * Fb_step, "f1", Fb_base + 3 * Fb_step);
+            this.fsk_channel1 = struct("f0", Fb_base + 4 * Fb_step, "f1", Fb_base + 5 * Fb_step);
             this.wavelen = physconst("Lightspeed") / Fc;
             this.fs_granularity = fs_granularity;
             this.Fs = Fc * fs_granularity;
