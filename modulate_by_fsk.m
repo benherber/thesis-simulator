@@ -1,9 +1,11 @@
-% % -------------------------- %
-% % FSK Modulation             %
-% % Name   : modulate_by_fsk.m %
-% % Author : Benjamin Herber   %
-% % Date   : Fall 2021         %
-% % -------------------------- %
+% %{
+%  -------------------------- 
+%  FSK Modulation             
+%  Name   : modulate_by_fsk.m 
+%  Author : Benjamin Herber   
+%  Date   : Fall 2021         
+%  --------------------------
+% %}
 % 
 % function [ reconstructed_data, modulated_signal ] = modulate_by_fsk(t, carrier, data, channel)
 % % MODULATE_BY_FSK Modulate a given signal by frequency-shift keying.

@@ -247,7 +247,7 @@ classdef Tag < handle
             %   Demodulate a signal modulated by on-off keying.
 
             arguments
-                signal (:, 1) {mustBeFinite, mustBeNonmissing}
+                signal (:, 1)
                 carrier (:, 1) {mustBeFinite, mustBeNonmissing}
                 time (:, 1) {mustBeFinite, mustBeReal}
             end
@@ -274,7 +274,7 @@ classdef Tag < handle
             %   respectively.
 
             arguments
-                signal (:, 1) {mustBeFinite, mustBeNonmissing}
+                signal (:, 1)
                 carrier (:, 1) {mustBeFinite, mustBeNonmissing}
                 time (:, 1) {mustBeFinite, mustBeReal}
                 f1 {mustBeNumeric, mustBeReal}

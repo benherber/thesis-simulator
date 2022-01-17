@@ -21,7 +21,7 @@ time = (0:(1 / simconsts.Fs):(simconsts.total_time - (1 / simconsts.Fs)));
 carrier = complex(simconsts.amplitude * sin(complex(2 * pi * simconsts.Fc * time)));
 
 % Channel Definition
-channel = @(given) given;%awgn(given, 20, "measured", "linear");
+channel = @(given) awgn(given, 0, "measured", "linear");
 
 % Get random data signal
 bits = randi([0, 1], simconsts.num_symbs, 1);
@@ -84,7 +84,6 @@ modded_steps = zeros(simconsts.simstep_sz, (simconsts.num_symbs * simconsts.sim_
 for idx = 1:(simconsts.num_symbs * simconsts.sim_sym_ratio)
     modded_steps(:, idx) = tag.step();
 end
-f_modulation = modded_steps(:);
 
 % Demodulate
 modded_symbs = reshape(modded_steps, [simconsts.symb_sz, simconsts.num_symbs]);
@@ -131,8 +130,8 @@ channel0f0 = simconsts.fsk_channel0.f0;
 channel1f1 = simconsts.fsk_channel1.f1;
 channel1f0 = simconsts.fsk_channel1.f0;
 parfor idx = 1:simconsts.num_symbs
-%     res_bits1(idx) = Tag.fsk_demodulate(modded_symbs(:, idx), carrier_split(:, idx), ... 
-%         symb_times(:, idx), channel0f1, channel0f0);
+    res_bits1(idx) = Tag.fsk_demodulate(modded_symbs(:, idx), carrier_split(:, idx), ... 
+        symb_times(:, idx), channel0f1, channel0f0);
     res_bits2(idx) = Tag.fsk_demodulate(modded_symbs(:, idx), carrier_split(:, idx), ... 
         symb_times(:, idx), channel1f1, channel1f0);
 end

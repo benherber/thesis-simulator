@@ -5,21 +5,21 @@ classdef SimulationConstants < handle
 
     properties (GetAccess = public, SetAccess = private)
         Fc % Carrier Frequency
-        fsk_channel0; % First frequency channel for fsk
-        fsk_channel1; % Second frequency channel for fsk
-        wavelen % Wavelength of Carrier
-        fs_granularity % Sampling Granularity
-        Fs % Sampling frequency
-        num_symbs % Total number of symbols in simulation
-        symb_freq % Frequency of symbols
-        symb_sz % Samples per symbol
-        sim_sym_ratio % Simulation steps per symbol window
-        simstep_freq % Frequency of simulation-steps
-        simstep_sz % Number of samples per simulation-step
-        total_time % Total simulation time
-        total_samples % Total simulation samples
-        amplitude % Amplitude of Carrier
-        num_elements % Number of elements in Van Atta Array
+        fsk_channel0 % First frequency channel for fsk
+        fsk_channel1 % Second frequency channel for fsk
+        wavelen {mustBePositive} % Wavelength of Carrier
+        fs_granularity {mustBePositive} % Sampling Granularity
+        Fs {mustBePositive} % Sampling frequency
+        num_symbs {mustBePositive} % Total number of symbols in simulation
+        symb_freq {mustBePositive} % Frequency of symbols
+        symb_sz {mustBePositive} % Samples per symbol
+        sim_sym_ratio {mustBePositive} % Simulation steps per symbol window
+        simstep_freq {mustBePositive} % Frequency of simulation-steps
+        simstep_sz  {mustBePositive}% Number of samples per simulation-step
+        total_time {mustBePositive} % Total simulation time
+        total_samples {mustBePositive} % Total simulation samples
+        amplitude {mustBePositive} % Amplitude of Carrier
+        num_elements {mustBePositive} % Number of elements in Van Atta Array
     end
 
     methods
