@@ -42,6 +42,7 @@ for run = 1:NUM_RUNS
         fsk_bers(run, idx) = fsk_ber(snrs(idx), TagType.FSK_LO, time, carrier, data, bits, simconsts);
 %         dual_bers(run, idx) = dual_fsk_ber(snrs(idx), time, carrier, data, bits, simconsts);
     end
+    save("bers.mat", "ook_bers", "fsk_bers");
 end
 
 f1 = figure();
