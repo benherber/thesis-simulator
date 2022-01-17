@@ -7,7 +7,7 @@ consts_struct = struct( ...
     "Fb_base", 75e3, ...
     "Fb_step", 25e3, ...
     "fs_granularity", 3, ...
-    "num_symbs", 1000, ...
+    "num_symbs", 500, ...
     "symb_freq", 100e3, ...
     "sim_sym_ratio", 10, ...
     "amplitude", 0.1, ...
@@ -15,6 +15,8 @@ consts_struct = struct( ...
     );
 consts_cell = struct2cell(consts_struct);
 simconsts = SimulationConstants(consts_cell{:});
+
+NUM_RUNS = int8(200);
 
 % Get time
 time = (0:(1 / simconsts.Fs):(simconsts.total_time - (1 / simconsts.Fs)));
@@ -28,25 +30,27 @@ data = repelem(bits, simconsts.symb_sz).';
 
 %% Calculate BERs
 
-snrs = (0:1:10);
+snrs = (0:0.25:10);
 
-ook_bers = zeros(1, length(snrs));
-fsk_bers = zeros(1, length(snrs));
-dual_bers = zeros(1, length(snrs));
+ook_bers = NaN(NUM_RUNS, length(snrs));
+fsk_bers = NaN(NUM_RUNS, length(snrs));
+dual_bers = NaN(NUM_RUNS, length(snrs));
 
-pool = gcp();
-parfor idx = 1:length(snrs)
-    ook_bers(idx) = ook_ber(snrs(idx), time, carrier, data, bits, simconsts);
-    fsk_bers(idx) = fsk_ber(snrs(idx), TagType.FSK_LO, time, carrier, data, bits, simconsts);
-    dual_bers(idx) = dual_fsk_ber(snrs(idx), time, carrier, data, bits, simconsts);
+for run = 1:NUM_RUNS
+    parfor idx = 1:length(snrs)
+        ook_bers(run, idx) = ook_ber(snrs(idx), time, carrier, data, bits, simconsts);
+        fsk_bers(run, idx) = fsk_ber(snrs(idx), TagType.FSK_LO, time, carrier, data, bits, simconsts);
+%         dual_bers(run, idx) = dual_fsk_ber(snrs(idx), time, carrier, data, bits, simconsts);
+    end
 end
 
 f1 = figure();
 hold on
-plot(snrs, ook_bers);
-plot(snrs, fsk_bers);
-plot(snrs, dual_bers);
+semilogy(snrs, mean(ook_bers, 1, "omitnan"));
+semilogy(snrs, mean(fsk_bers, 1, "omitnan"));
+% semilogy(snrs, dual_bers);
 legend(["OOK", "FSK", "Dual FSK"]);
+savefig
 hold off
 
 %% OOK BER Function
