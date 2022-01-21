@@ -24,10 +24,6 @@ time = (0:(1 / simconsts.Fs):(simconsts.total_time - (1 / simconsts.Fs)));
 % Carrier signal
 carrier = complex(simconsts.amplitude * sin(complex(2 * pi * simconsts.Fc * time)));
 
-% Get random data signal
-bits = randi([0, 1], simconsts.num_symbs, 1);
-data = repelem(bits, simconsts.symb_sz).';
-
 %% Calculate BERs
 
 snrs = (0:0.25:10);
@@ -37,13 +33,20 @@ fsk_bers = NaN(NUM_RUNS, length(snrs));
 dual_bers = NaN(NUM_RUNS, length(snrs));
 
 for run = 1:NUM_RUNS
+    % Get random data signal
+    bits = randi([0, 1], simconsts.num_symbs, 1);
+    data = repelem(bits, simconsts.symb_sz).';
+
+    % Calculate partial BER
     parfor idx = 1:length(snrs)
         ook_bers(run, idx) = ook_ber(snrs(idx), time, carrier, data, bits, simconsts);
         fsk_bers(run, idx) = fsk_ber(snrs(idx), TagType.FSK_LO, time, carrier, data, bits, simconsts);
 %         dual_bers(run, idx) = dual_fsk_ber(snrs(idx), time, carrier, data, bits, simconsts);
     end
-    save("bers.mat", "ook_bers", "fsk_bers");
 end
+save("bers.mat", "ook_bers", "fsk_bers");
+
+%% 
 
 f1 = figure();
 hold on
