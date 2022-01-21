@@ -20,6 +20,7 @@ classdef Simulator < handle
         channel function_handle
         tag_delays (:, 1)
         params SimulationConstants
+        bits {mustBeReal}
     end
 
     methods
@@ -39,22 +40,25 @@ classdef Simulator < handle
             this.channel = channel;
 
             % Init tags
-            tag_sz = size(tags);
-            tag_sz = tag_sz(2);
-            for idx = 1:tag_sz
-                % Get random data signal
-                bits = randi([0, 1], this.params.num_symbs, 1);
-                data = repelem(bits, this.params.symb_sz).';
-
-                this.tags = [this.tags, Tag(tags(1, idx), tags(2, idx), tags(3, idx), ...
-                    tag_modes(idx), this.time, this.carrier, data, this.channel, this.params)];
-            end
+            tag_sz = size(tags, 2);
 
             % Init Tag ID's
             this.tag_preambles = zeros(tag_sz, 8);
             for idx = (1:tag_sz)
                 tag_id = dec2bin(idx - 1, 8);
                 this.tag_preambles(idx, :) = double(tag_id - '0');
+            end
+
+            % Init Data
+            this.bits = zeros(tag_sz, this.params.num_symbs);
+            for idx = 1:tag_sz
+                % Get random data signal
+                bits = [this.tag_preambles(idx, :).'; randi([0, 1], this.params.num_symbs - 8, 1)];
+                this.bits(idx, :) = bits;
+                data = repelem(bits, this.params.symb_sz).';
+
+                this.tags = [this.tags, Tag(tags(1, idx), tags(2, idx), tags(3, idx), ...
+                    tag_modes(idx), this.time, this.carrier, data, this.channel, this.params)];
             end
 
             % Init Tag Delay Vector
@@ -80,14 +84,14 @@ classdef Simulator < handle
 
             for idx = 1:numel(this.tags)
                 curr = this.tags(idx);
-                res = res + curr.step();
+                res = res(1, :) + curr.step().';
             end
 
             this.curr_step = this.curr_step + 1;
         end
 
         function res = auto_align(this, signal)
-            if (this.curr_step * this.params.sim_sym_ratio) > 8
+            if (this.curr_step / this.params.sim_sym_ratio) < 8
                 res = false;
                 return;
             end
@@ -103,21 +107,21 @@ classdef Simulator < handle
             delays = this.tag_delays;
             parfor idx = 1:length(this.tags)
                 preamble = repelem(tag_preams(idx, :), symb_size).';
-                if thetags{idx}.mode == TagType.OOK
+                if thetags(idx).mode == TagType.OOK
                     modded_preamble = Tag.modulate_by_ook(carr, preamble, opts);
                 else
-                    if thetags{idx}.mode == TagType.FSK_LO
+                    if thetags(idx).mode == TagType.FSK_LO
                         f1 = opts.fsk_channel0.f1;
-                        f0 = opts.params.fsk_channel0.f0;
+                        f0 = opts.fsk_channel0.f0;
 
-                    elseif thetags{idx}.mode == TagType.FSK_HI
+                    elseif thetags(idx).mode == TagType.FSK_HI
                         f1 = opts.fsk_channel1.f1;
                         f0 = opts.fsk_channel1.f0;
                     else
                         error("BAD MODE");
                     end
 
-                    modded_preamble = Tag.modulate_by_fsk(t, carr, opts, f1, f0);
+                    modded_preamble = Tag.modulate_by_fsk(t, carr, preamble, opts, f1, f0);
 
                 end
 

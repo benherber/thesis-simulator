@@ -10,7 +10,7 @@ classdef SimulationConstants < handle
         wavelen {mustBePositive} % Wavelength of Carrier
         fs_granularity {mustBePositive} % Sampling Granularity
         Fs {mustBePositive} % Sampling frequency
-        num_symbs {mustBePositive} % Total number of symbols in simulation
+        num_symbs {mustBePositive, mustBeGreaterThanOrEqual(num_symbs, 8)} % Total number of symbols in simulation
         symb_freq {mustBePositive} % Frequency of symbols
         symb_sz {mustBePositive} % Samples per symbol
         sim_sym_ratio {mustBePositive} % Simulation steps per symbol window
