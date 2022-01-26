@@ -92,9 +92,14 @@ classdef Tag < handle
             %   Delay a signal based on the tag's distance from the
             %   basestation.
 
+            arguments
+                this bherber.thesis.Tag
+                signal (:, 1)
+            end
+
             time_delay = this.distance / physconst("Lightspeed");
             num_samples = time_delay * this.params.Fs;
-            res = [zeros(int32(num_samples), 1).', signal];
+            res = [zeros(int32(num_samples), 1); signal];
         end
 
         % ----------------------------------------------------------------------- %
@@ -135,6 +140,18 @@ classdef Tag < handle
             %TAG constructor
             %   Create a tag a specific distance from a basestation in 3D
             %   space.
+            
+            arguments
+                x double {mustBeScalarOrEmpty} % x-position of tag relative to basestation
+                y double {mustBeScalarOrEmpty} % y-position of tag relative to basestation
+                z double {mustBeScalarOrEmpty} % z-position of tag relative to basestation
+                mode bherber.thesis.TagType % Modulation mode
+                time (:, 1) {mustBeReal, mustBeFinite, mustBeNonmissing} % Time signal
+                carrier (:, 1) {mustBeFinite, mustBeNonmissing} % Delayed carrier signal
+                data (:, 1) {mustBeNonmissing, mustBeInRange(data, 0, 1)} % Delayed data signal
+                channel function_handle % Propagation channel
+                sim_params bherber.thesis.SimulationConstants % Simulation parameters
+            end
 
             this.params = sim_params;
             this.x = x;
