@@ -4,3 +4,4 @@ venv
 python*
 venv
 .vscode
+.DS_STORE
