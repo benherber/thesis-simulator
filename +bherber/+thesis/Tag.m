@@ -15,13 +15,13 @@ classdef Tag < handle
         x double {mustBeScalarOrEmpty} % x-position of tag relative to basestation
         y double {mustBeScalarOrEmpty} % y-position of tag relative to basestation
         z double {mustBeScalarOrEmpty} % z-position of tag relative to basestation
-        mode TagType % Modulation mode
+        mode bherber.thesis.TagType % Modulation mode
         curr_step int64 {mustBeScalarOrEmpty} % Current time-slice in modulation
         carrier (:, 1) {mustBeFinite, mustBeNonmissing} % Delayed carrier signal
         data (:, 1) {mustBeNonmissing, mustBeInRange(data, 0, 1)} % Delayed data signal
         time (:, 1) {mustBeReal, mustBeFinite, mustBeNonmissing} % Time signal
         channel function_handle % Propagation channel
-        params SimulationConstants % Simulation parameters
+        params bherber.thesis.SimulationConstants % Simulation parameters
     end
 
     %%  Dependent Properties
@@ -57,8 +57,8 @@ classdef Tag < handle
 
             for idx = 1:num_elements
                 tmp = tmp + exp(1i * ...
-                    (Tag.find_phase(0, lambda_b, spacing, (idx - 1)) ...
-                    - Tag.find_phase(0, lambda_c, spacing, (idx - 1))));
+                    (bherber.thesis.Tag.find_phase(0, lambda_b, spacing, (idx - 1)) ...
+                    - bherber.thesis.Tag.find_phase(0, lambda_c, spacing, (idx - 1))));
             end
 
             res = tmp;
@@ -102,15 +102,15 @@ classdef Tag < handle
         function [f1, f0] = freq(this)
             %FREQ determine current operating frequency
 
-            if this.mode == TagType.FSK_LO
+            if this.mode == bherber.thesis.TagType.FSK_LO
                 f1 = this.params.fsk_channel0.f1;
                 f0 = this.params.fsk_channel0.f0;
 
-            elseif this.mode == TagType.FSK_HI
+            elseif this.mode == bherber.thesis.TagType.FSK_HI
                 f1 = this.params.fsk_channel1.f1;
                 f0 = this.params.fsk_channel1.f0;
 
-            elseif this.mode == TagType.FSK_RANDOM
+            elseif this.mode == bherber.thesis.TagType.FSK_RANDOM
 
                 if logical(randi([0, 1]))
                     f1 = this.params.fsk_channel0.f1;
@@ -163,7 +163,7 @@ classdef Tag < handle
             %STEP the object 'n' simulation frame(s) forward
 
             arguments
-                this Tag
+                this bherber.thesis.Tag
                 n {mustBeFinite, mustBeScalarOrEmpty, mustBePositive} = 1
             end
 
@@ -178,16 +178,16 @@ classdef Tag < handle
             cut_carrier = this.carrier(start_pt:stop_pt);
             cut_data = this.data(start_pt:stop_pt);
 
-            cut_carrier = Tag.friis_path_loss(this.channel(cut_carrier), ...
+            cut_carrier = bherber.thesis.Tag.friis_path_loss(this.channel(cut_carrier), ...
                 this.distance, this.params);
-            if this.mode == TagType.OOK
-                res = Tag.modulate_by_ook(cut_carrier, cut_data, this.params);
+            if this.mode == bherber.thesis.TagType.OOK
+                res = bherber.thesis.Tag.modulate_by_ook(cut_carrier, cut_data, this.params);
             else
                 [f1, f0] = this.freq();
-                res = Tag.modulate_by_fsk(cut_time, cut_carrier, ...
+                res = bherber.thesis.Tag.modulate_by_fsk(cut_time, cut_carrier, ...
                     cut_data, this.params, f1, f0);
             end
-            res = Tag.friis_path_loss(this.channel(res), ...
+            res = bherber.thesis.Tag.friis_path_loss(this.channel(res), ...
                 this.distance, this.params);
 
             this.curr_step = this.curr_step + n;
@@ -206,7 +206,7 @@ classdef Tag < handle
 
             % 2. Modulate
             ook_modulation = carrier .* data .* ...
-                Tag.vanatta_gain(params.num_elements, params.Fc, params.Fc);
+                bherber.thesis.Tag.vanatta_gain(params.num_elements, params.Fc, params.Fc);
 
         end
 
@@ -223,9 +223,9 @@ classdef Tag < handle
             sq_one = square((f1) * 2 * pi * t);
             sq_zero = square((f0) * 2 * pi * t);
             all_ones = sq_one .* carrier * ...
-                Tag.vanatta_gain(params.num_elements, params.Fc, params.Fc + f1);
+                bherber.thesis.Tag.vanatta_gain(params.num_elements, params.Fc, params.Fc + f1);
             all_zeros = sq_zero .* carrier * ...
-                Tag.vanatta_gain(params.num_elements, params.Fc, params.Fc + f0);
+                bherber.thesis.Tag.vanatta_gain(params.num_elements, params.Fc, params.Fc + f0);
 
             for idx = 1:length(f_modulation)
 

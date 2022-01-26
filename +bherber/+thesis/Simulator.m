@@ -11,7 +11,7 @@ classdef Simulator < handle
     %   basestation.
 
     properties (GetAccess = public, SetAccess = private)
-        tags (:, 1) Tag
+        tags (:, 1)bherber.thesis.Tag
         tag_preambles (:, 8) {mustBeFinite}
         curr_step int64
         total_steps int64
@@ -19,7 +19,7 @@ classdef Simulator < handle
         carrier (1, :) {mustBeFinite}
         channel function_handle
         tag_delays (:, 1)
-        params SimulationConstants
+        params bherber.thesis.SimulationConstants
         bits {mustBeReal}
     end
 
@@ -57,7 +57,7 @@ classdef Simulator < handle
                 this.bits(idx, :) = bits;
                 data = repelem(bits, this.params.symb_sz).';
 
-                this.tags = [this.tags, Tag(tags(1, idx), tags(2, idx), tags(3, idx), ...
+                this.tags = [this.tags,bherber.thesis.Tag(tags(1, idx), tags(2, idx), tags(3, idx), ...
                     tag_modes(idx), this.time, this.carrier, data, this.channel, this.params)];
             end
 
@@ -107,21 +107,21 @@ classdef Simulator < handle
             delays = this.tag_delays;
             parfor idx = 1:length(this.tags)
                 preamble = repelem(tag_preams(idx, :), symb_size).';
-                if thetags(idx).mode == TagType.OOK
-                    modded_preamble = Tag.modulate_by_ook(carr, preamble, opts);
+                if thetags(idx).mode == bherber.thesis.TagType.OOK
+                    modded_preamble = bherber.thesis.Tag.modulate_by_ook(carr, preamble, opts);
                 else
-                    if thetags(idx).mode == TagType.FSK_LO
+                    if thetags(idx).mode == bherber.thesis.TagType.FSK_LO
                         f1 = opts.fsk_channel0.f1;
                         f0 = opts.fsk_channel0.f0;
 
-                    elseif thetags(idx).mode == TagType.FSK_HI
+                    elseif thetags(idx).mode == bherber.thesis.TagType.FSK_HI
                         f1 = opts.fsk_channel1.f1;
                         f0 = opts.fsk_channel1.f0;
                     else
                         error("BAD MODE");
                     end
 
-                    modded_preamble = Tag.modulate_by_fsk(t, carr, preamble, opts, f1, f0);
+                    modded_preamble = bherber.thesis.Tag.modulate_by_fsk(t, carr, preamble, opts, f1, f0);
 
                 end
 
