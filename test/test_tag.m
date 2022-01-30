@@ -7,7 +7,7 @@ consts_struct = struct( ...
     "Fc", 2.4e9, ...
     "Fb_base", 75e3, ...
     "Fb_step", 25e3, ...
-    "Fb_channel_spacing", 25e3, ...
+    "Fb_channel_spacing", 50e3, ...
     "fs_granularity", 3, ...
     "num_symbs", 100, ...
     "symb_freq", 100e3, ...
@@ -28,7 +28,7 @@ carrier = complex(simconsts.amplitude * sin(complex(2 * pi * simconsts.Fc * time
 channel = @(given) given; %awgn(given, 20, "measured", "linear");
 
 % Get random data signal
-bits = randi([0, 1], simconsts.num_symbs, 1);
+bits = randi([0, 1], 1, simconsts.num_symbs);
 data = repelem(bits, simconsts.symb_sz); 
 
 %% OOK Tag
@@ -44,7 +44,7 @@ end
 % Demodulate
 modded_symbs = reshape(modded_steps, [simconsts.symb_sz, simconsts.num_symbs]);
 
-res_bits = zeros(numel(bits), 1);
+res_bits = zeros(1, numel(bits));
 symb_times = reshape(time, [simconsts.symb_sz, simconsts.num_symbs]);
 carrier_split = reshape(carrier, [simconsts.symb_sz, simconsts.num_symbs]);
 parfor idx = 1:simconsts.num_symbs
@@ -67,7 +67,7 @@ end
 % Demodulate
 modded_symbs = reshape(modded_steps, [simconsts.symb_sz, simconsts.num_symbs]);
 
-res_bits = zeros(numel(bits), 1);
+res_bits = zeros(1, numel(bits));
 symb_times = reshape(time, [simconsts.symb_sz, simconsts.num_symbs]);
 carrier_split = reshape(carrier, [simconsts.symb_sz, simconsts.num_symbs]);
 f1 = simconsts.fsk_channel0.f1;
@@ -92,7 +92,7 @@ end
 % Demodulate
 modded_symbs = reshape(modded_steps, [simconsts.symb_sz, simconsts.num_symbs]);
 
-res_bits = zeros(numel(bits), 1);
+res_bits = zeros(1, numel(bits));
 symb_times = reshape(time, [simconsts.symb_sz, simconsts.num_symbs]);
 carrier_split = reshape(carrier, [simconsts.symb_sz, simconsts.num_symbs]);
 f1 = simconsts.fsk_channel1.f1;
@@ -107,9 +107,9 @@ fprintf("FSK (hi) Bit Error \t: %%%0.2f\n", (biterr(bits, res_bits) / simconsts.
 %% Dual-Channel FSK Tags
 
 % Get random data signals
-bits1 = randi([0, 1], simconsts.num_symbs, 1);
+bits1 = randi([0, 1], 1, simconsts.num_symbs);
 data1 = repelem(bits1, simconsts.symb_sz); 
-bits2 = randi([0, 1], simconsts.num_symbs, 1);
+bits2 = randi([0, 1], 1, simconsts.num_symbs);
 data2 = repelem(bits2, simconsts.symb_sz); 
 
 tag1 = Tag(0, 0, 0, TagType.FSK_LO, time, carrier, data1, channel, simconsts);
@@ -125,8 +125,8 @@ f_modulation = modded_steps(:);
 % Demodulate
 modded_symbs = reshape(modded_steps, [simconsts.symb_sz, simconsts.num_symbs]);
 
-res_bits1 = zeros(numel(bits1), 1);
-res_bits2 = zeros(numel(bits2), 1);
+res_bits1 = zeros(1, numel(bits));
+res_bits2 = zeros(1, numel(bits));
 symb_times = reshape(time, [simconsts.symb_sz, simconsts.num_symbs]);
 carrier_split = reshape(carrier, [simconsts.symb_sz, simconsts.num_symbs]);
 channel0f1 = simconsts.fsk_channel0.f1;
