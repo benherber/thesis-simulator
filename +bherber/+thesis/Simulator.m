@@ -84,13 +84,17 @@ classdef Simulator < handle
 
             for idx = 1:numel(this.tags)
                 curr = this.tags(idx);
-                res = res(1, :) + curr.step().';
+                res = res(1, :) + curr.step();
             end
 
             this.curr_step = this.curr_step + 1;
         end
 
         function res = auto_align(this, signal)
+            %AUTO_ALIGN each received signal.
+            %   Find delays of each received tag signal based off of given
+            %   preambles.
+
             if (this.curr_step / this.params.sim_sym_ratio) < 8
                 res = false;
                 return;
