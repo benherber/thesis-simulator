@@ -221,7 +221,12 @@ classdef Tag < handle
             %   according to on-off keying as a backscatter tag would
             %   through a given channel.
 
-            % 2. Modulate
+            arguments
+                carrier (1, :)
+                data (1, :)
+                params bherber.thesis.SimulationConstants
+            end
+
             ook_modulation = carrier .* data .* ...
                 bherber.thesis.Tag.vanatta_gain(params.num_elements, params.Fc, params.Fc);
 
@@ -234,6 +239,15 @@ classdef Tag < handle
             %   Given carrier and data signals, modulate the carrier wave
             %   according to frequency-shift keying as a backscatter tag
             %   would through a given channel.
+
+            arguments
+                t (1, :)
+                carrier (1, :)
+                data (1, :)
+                params bherber.thesis.SimulationConstants
+                f1
+                f0
+            end
 
             % Frequency modulation
             f_modulation = zeros(size(data));
@@ -263,9 +277,9 @@ classdef Tag < handle
             %   Demodulate a signal modulated by on-off keying.
 
             arguments
-                signal (:, 1)
-                carrier (:, 1) {mustBeFinite, mustBeNonmissing}
-                time (:, 1) {mustBeFinite, mustBeReal}
+                signal (1, :)
+                carrier (1, :) {mustBeFinite, mustBeNonmissing}
+                time (1, :) {mustBeFinite, mustBeReal}
             end
 
             % 1. Freq mix
@@ -290,9 +304,9 @@ classdef Tag < handle
             %   respectively.
 
             arguments
-                signal (:, 1)
-                carrier (:, 1) {mustBeFinite, mustBeNonmissing}
-                time (:, 1) {mustBeFinite, mustBeReal}
+                signal (1, :)
+                carrier (1, :) {mustBeFinite, mustBeNonmissing}
+                time (1, :) {mustBeFinite, mustBeReal}
                 f1 {mustBeNumeric, mustBeReal}
                 f0 {mustBeNumeric, mustBeReal}
             end

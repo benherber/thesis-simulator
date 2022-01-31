@@ -25,7 +25,7 @@ time = (0:(1 / simconsts.Fs):(simconsts.total_time - (1 / simconsts.Fs)));
 carrier = complex(simconsts.amplitude * sin(complex(2 * pi * simconsts.Fc * time)));
 
 % Channel Definition
-channel = @(given) given; %awgn(given, 20, "measured", "linear");
+channel = @(given) awgn(given, 0.002, "measured", "linear");
 
 % Get random data signal
 bits = randi([0, 1], 1, simconsts.num_symbs);

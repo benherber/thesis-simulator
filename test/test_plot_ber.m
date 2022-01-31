@@ -2,12 +2,16 @@
 
 clear; clc;
 
+addpath(genpath(".."));
+import bherber.thesis.*
+
 consts_struct = struct( ...
     "Fc", 2.4e9, ...
     "Fb_base", 75e3, ...
     "Fb_step", 25e3, ...
+    "Fb_channel_spacing", 50e3, ...
     "fs_granularity", 3, ...
-    "num_symbs", 500, ...
+    "num_symbs", 1000, ...
     "symb_freq", 100e3, ...
     "sim_sym_ratio", 10, ...
     "amplitude", 0.1, ...
@@ -16,7 +20,7 @@ consts_struct = struct( ...
 consts_cell = struct2cell(consts_struct);
 simconsts = SimulationConstants(consts_cell{:});
 
-NUM_RUNS = int8(200);
+NUM_RUNS = int8(100);
 
 % Get time
 time = (0:(1 / simconsts.Fs):(simconsts.total_time - (1 / simconsts.Fs)));
@@ -26,7 +30,7 @@ carrier = complex(simconsts.amplitude * sin(complex(2 * pi * simconsts.Fc * time
 
 %% Calculate BERs
 
-snrs = (0:0.25:10);
+snrs = (0:0.001:0.05);
 
 ook_bers = NaN(NUM_RUNS, length(snrs));
 fsk_bers = NaN(NUM_RUNS, length(snrs));
@@ -41,21 +45,21 @@ for run = 1:NUM_RUNS
     parfor idx = 1:length(snrs)
         ook_bers(run, idx) = ook_ber(snrs(idx), time, carrier, data, bits, simconsts);
         fsk_bers(run, idx) = fsk_ber(snrs(idx), TagType.FSK_LO, time, carrier, data, bits, simconsts);
-%         dual_bers(run, idx) = dual_fsk_ber(snrs(idx), time, carrier, data, bits, simconsts);
     end
 end
-save("bers.mat", "ook_bers", "fsk_bers");
+save(sprintf("data/bers::%s.mat", datestr(now, "mm-dd-yy-HH:MM:SS")), ...
+    "ook_bers", "fsk_bers");
 
-%% 
+%% Plot
 
-f1 = figure();
+fig = figure();
 hold on
 semilogy(snrs, mean(ook_bers, 1, "omitnan"));
 semilogy(snrs, mean(fsk_bers, 1, "omitnan"));
-% semilogy(snrs, dual_bers);
 legend(["OOK", "FSK", "Dual FSK"]);
-savefig
+savefig(sprintf("plots/ber::%s.fig", datestr(now, "mm-dd-yy-HH:MM:SS")));
 hold off
+close(fig);
 
 %% OOK BER Function
 function res = ook_ber(snr, time, carrier, data, bits, params)
@@ -66,8 +70,10 @@ function res = ook_ber(snr, time, carrier, data, bits, params)
         carrier {mustBeNonmissing, mustBeFinite}
         data {mustBeNonmissing, mustBeFinite}
         bits
-        params SimulationConstants
+        params bherber.thesis.SimulationConstants
     end
+
+    import bherber.thesis.*
 
     channel = @(signal) awgn(signal, snr, "measured", "linear");
 
@@ -100,13 +106,15 @@ function res = fsk_ber(snr, tag_type, time, carrier, data, bits, params)
     
     arguments
         snr {mustBeFinite}
-        tag_type TagType
+        tag_type bherber.thesis.TagType
         time {mustBeNonmissing, mustBeFinite}
         carrier {mustBeNonmissing, mustBeFinite}
         data {mustBeNonmissing, mustBeFinite}
         bits
-        params SimulationConstants
+        params bherber.thesis.SimulationConstants
     end
+
+    import bherber.thesis.*
 
     channel = @(signal) awgn(signal, snr, "measured", "linear");
 
@@ -152,8 +160,10 @@ function res = dual_fsk_ber(snr, time, carrier, data, bits, params)
         carrier {mustBeNonmissing, mustBeFinite}
         data {mustBeNonmissing, mustBeFinite}
         bits
-        params SimulationConstants
+        params bherber.thesis.SimulationConstants
     end
+
+    import bherber.thesis.*
 
     channel = @(signal) awgn(signal, snr, "measured", "linear");
 
