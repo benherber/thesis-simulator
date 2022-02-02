@@ -37,17 +37,20 @@ power = @(signal) rms(signal)^2;
 
 MAX_DISTANCE = 100;
 distances = 1:1:MAX_DISTANCE;
-powers = zeros(size(distances));
+powers = zeros(length(distances), 2);
 
 num_steps = simconsts.num_symbs * simconsts.sim_sym_ratio;
 step_sz = simconsts.simstep_sz;
 parfor idx = 1:length(distances)
-    curr = Tag(distances(idx), 0, 0, TagType.FSK_LO, time, carrier, data, channel, simconsts);
-    modded_steps = zeros(step_sz, num_steps);
+    fsk_curr = Tag(distances(idx), 0, 0, TagType.FSK_LO, time, carrier, data, channel, simconsts);
+    fsk_modded_steps = zeros(step_sz, num_steps);
+    ook_curr = Tag(distances(idx), 0, 0, TagType.OOK, time, carrier, data, channel, simconsts);
+    ook_modded_steps = zeros(step_sz, num_steps);
     for jdx = 1:num_steps
-        modded_steps(:, jdx) = curr.step();
+        fsk_modded_steps(:, jdx) = fsk_curr.step();
+        ook_modded_steps(:, jdx) = ook_curr.step();
     end  
-    powers(idx) = power(modded_steps(:));
+    powers(idx, :) = [power(ook_modded_steps(:)), power(fsk_modded_steps(:))];
 end
 
 %% Plot
@@ -57,6 +60,7 @@ semilogy(distances, powers);
 title("Received Backscattered Power Relation to Tag Distance", FontSize=20);
 ylabel("Received Power (rms)", FontSize=18);
 xlabel("Tag Distance (m)", FontSize=18);
+legend(["OOK", "FSK"])
 grid on
 savefig(sprintf("plots/power_decay_fig::%s.fig", datestr(now, "mm-dd-yy-HH:MM:SS")));
 close(fig);

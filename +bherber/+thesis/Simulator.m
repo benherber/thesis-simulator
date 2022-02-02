@@ -100,8 +100,7 @@ classdef Simulator < handle
                 return;
             end
 
-            curr_samps = floor(this.curr_step / this.params.sim_sym_ratio) * ...
-                this.params.symb_sz;
+            curr_samps = 8 * this.params.symb_sz;
             t = this.time(1:curr_samps);
             carr = this.carrier(1:curr_samps);
             opts = this.params;
@@ -109,7 +108,7 @@ classdef Simulator < handle
             tag_preams = this.tag_preambles;
             thetags = this.tags;
             delays = this.tag_delays;
-            parfor idx = 1:length(this.tags)
+            for idx = 1:length(this.tags)
                 preamble = repelem(tag_preams(idx, :), symb_size).';
                 if thetags(idx).mode == bherber.thesis.TagType.OOK
                     modded_preamble = bherber.thesis.Tag.modulate_by_ook(carr, preamble, opts);
@@ -122,6 +121,8 @@ classdef Simulator < handle
                         f1 = opts.fsk_channel1.f1;
                         f0 = opts.fsk_channel1.f0;
                     else
+                        f1 = 0;
+                        f0 = 0;
                         error("BAD MODE");
                     end
 
