@@ -21,6 +21,10 @@ classdef Tag < handle
         data (:, 1) {mustBeNonmissing, mustBeInRange(data, 0, 1)} % Delayed data signal
         time (:, 1) {mustBeReal, mustBeFinite, mustBeNonmissing} % Time signal
         channel function_handle % Propagation channel
+        fh_pattern (:, 1) = [];
+        is_active logical = true;
+        square_one
+        square_zero
         params bherber.thesis.SimulationConstants % Simulation parameters
     end
 
@@ -101,35 +105,6 @@ classdef Tag < handle
             num_samples = time_delay * this.params.Fs;
             res = [zeros(int32(num_samples), 1); signal];
         end
-
-        % ----------------------------------------------------------------------- %
-
-        function [f1, f0] = freq(this)
-            %FREQ determine current operating frequency
-
-            if this.mode == bherber.thesis.TagType.FSK_LO
-                f1 = this.params.fsk_channel0.f1;
-                f0 = this.params.fsk_channel0.f0;
-
-            elseif this.mode == bherber.thesis.TagType.FSK_HI
-                f1 = this.params.fsk_channel1.f1;
-                f0 = this.params.fsk_channel1.f0;
-
-            elseif this.mode == bherber.thesis.TagType.FSK_RANDOM
-
-                if logical(randi([0, 1]))
-                    f1 = this.params.fsk_channel0.f1;
-                    f0 = this.params.fsk_channel0.f0;
-                else
-                    f1 = this.params.fsk_channel1.f1;
-                    f0 = this.params.fsk_channel1.f0;
-                end
-
-            else
-                error("UNSUPPORTED MODE");
-            end
-
-        end
     end
 
     %% Public Methods
@@ -164,8 +139,52 @@ classdef Tag < handle
             this.time = time;
             this.channel = channel;
 
+            if mode == bherber.thesis.TagType.FREQ_HOP
+                this.fh_pattern = randi([1, sim_params.num_channels], 1, ...
+                    sim_params.pattern_len);
+            end
+
+            if mode ~= bherber.thesis.TagType.OOK
+                if mode == bherber.thesis.TagType.FREQ_HOP
+                    shaped_time = reshape(time, [round(length(time) / (this.params.num_symbs + 1)), ...
+                        this.params.num_symbs + 1]).';
+                    square_one = zeros(this.params.num_symbs + 1, ...
+                        round(length(time) / (this.params.num_symbs + 1)));
+                    square_zero = zeros(this.params.num_symbs + 1, ...
+                        round(length(time) / (this.params.num_symbs + 1)));
+                    for idx = 1:this.params.num_symbs
+                        channel_idx = mod(idx, sim_params.pattern_len);
+                        if channel_idx == 0; channel_idx = sim_params.pattern_len; end
+                        f0 = this.params.freq_channels(this.fh_pattern(channel_idx)).f0;
+                        f1 = this.params.freq_channels(this.fh_pattern(channel_idx)).f1;
+                        square_one(idx, :) = square(f1 * 2 * pi * shaped_time(idx, :));
+                        square_zero(idx, :) = square(f0 * 2 * pi * shaped_time(idx, :));
+                    end
+                    this.square_one = this.delay(square_one(:));
+                    this.square_zero = this.delay(square_zero(:));
+                else
+                    if mode == bherber.thesis.TagType.FSK_LO
+                        f0 = this.params.freq_channels(1).f0;
+                        f1 = this.params.freq_channels(1).f1;
+                    elseif mode == bherber.thesis.TagType.FSK_HI
+                        f0 = this.params.freq_channels(2).f0;
+                        f1 = this.params.freq_channels(2).f1;
+                    end
+                    this.square_one = this.delay(square(f1 * 2 * pi * time));
+                    this.square_zero = this.delay(square(f0 * 2 * pi * time));
+                end
+            end
+
         end
 
+        % ----------------------------------------------------------------------- %
+        function activate(this)
+            this.is_active = true;
+        end
+
+        function deactivate(this)
+            this.is_active = false;
+        end
         % ----------------------------------------------------------------------- %
 
         function res = get.distance(this)
@@ -191,20 +210,37 @@ classdef Tag < handle
                 error("SIMULATION RAN OUT OF BOUNDS");
             end
 
-            cut_time = this.time(start_pt:stop_pt);
             cut_carrier = this.carrier(start_pt:stop_pt);
             cut_data = this.data(start_pt:stop_pt);
+            cut_sq_one = this.square_one(start_pt:stop_pt);
+            cut_sq_zero = this.square_zero(start_pt:stop_pt);
 
-            cut_carrier = bherber.thesis.Tag.friis_path_loss(this.channel(cut_carrier), ...
-                this.distance, this.params);
+%             noisy_carr = this.channel(cut_carrier);
+            cut_carrier = bherber.thesis.Tag.friis_path_loss(cut_carrier, ...
+            this.distance, this.params);
             if this.mode == bherber.thesis.TagType.OOK
                 res = bherber.thesis.Tag.modulate_by_ook(cut_carrier, cut_data, this.params);
             else
-                [f1, f0] = this.freq();
-                res = bherber.thesis.Tag.modulate_by_fsk(cut_time, cut_carrier, ...
-                    cut_data, this.params, f1, f0);
+                if this.mode == bherber.thesis.TagType.FREQ_HOP
+                    symb_number = ceil(this.curr_step / this.params.sim_sym_ratio);
+                    pattern_idx = mod(symb_number, this.params.pattern_len);
+                    if pattern_idx == 0; pattern_idx = this.params.pattern_len; end
+                    f0 = this.params.freq_channels(this.fh_pattern(pattern_idx)).f0;
+                    f1 = this.params.freq_channels(this.fh_pattern(pattern_idx)).f1;
+                else
+                    if this.mode == bherber.thesis.TagType.FSK_LO
+                        channel_idx = 1;
+                    else
+                        channel_idx = 2;
+                    end
+                    f0 = this.params.freq_channels(channel_idx).f0;
+                    f1 = this.params.freq_channels(channel_idx).f1;
+                end
+                res = bherber.thesis.Tag.modulate_by_fsk(cut_carrier, cut_data, ...
+                    this.params, cut_sq_one, cut_sq_zero, f1, f0);
             end
-            res = bherber.thesis.Tag.friis_path_loss(this.channel(res), ...
+%             noisy_res = this.channel(res);
+            res = bherber.thesis.Tag.friis_path_loss(res, ...
                 this.distance, this.params);
 
             this.curr_step = this.curr_step + n;
@@ -234,25 +270,24 @@ classdef Tag < handle
 
         % ----------------------------------------------------------------------- %
 
-        function f_modulation = modulate_by_fsk(t, carrier, data, params, f1, f0)
+        function f_modulation = modulate_by_fsk(carrier, data, params, sq_one, sq_zero, f1, f0)
             % MODULATE_BY_FSK a given signal.
             %   Given carrier and data signals, modulate the carrier wave
             %   according to frequency-shift keying as a backscatter tag
             %   would through a given channel.
 
             arguments
-                t (1, :)
                 carrier (1, :)
                 data (1, :)
                 params bherber.thesis.SimulationConstants
-                f1
-                f0
+                sq_one (1, :)
+                sq_zero (1, :)
+                f1 {mustBePositive}
+                f0 {mustBePositive}
             end
 
             % Frequency modulation
             f_modulation = zeros(size(data));
-            sq_one = square((f1) * 2 * pi * t);
-            sq_zero = square((f0) * 2 * pi * t);
             all_ones = sq_one .* carrier * ...
                 bherber.thesis.Tag.vanatta_gain(params.num_elements, params.Fc, params.Fc + f1);
             all_zeros = sq_zero .* carrier * ...
@@ -272,7 +307,7 @@ classdef Tag < handle
         
         % ----------------------------------------------------------------------- %
 
-        function res_bits = ook_demodulate(signal, carrier, time)
+        function res_bits = ook_demodulate(signal, carrier, time, tag)
             %OOK_DEMODULATE a signal
             %   Demodulate a signal modulated by on-off keying.
 
@@ -280,6 +315,7 @@ classdef Tag < handle
                 signal (1, :)
                 carrier (1, :) {mustBeFinite, mustBeNonmissing}
                 time (1, :) {mustBeFinite, mustBeReal}
+                tag bherber.thesis.Tag
             end
 
             % 1. Freq mix
@@ -287,9 +323,12 @@ classdef Tag < handle
 
             % 2. Integrate
             correlated_ook = trapz(time, mixed_ook);
+%             fprintf("%0.2f+%0.2fj -> abs=%0.2f\n", real(correlated_ook), imag(correlated_ook), abs(correlated_ook));
 
             % 3. Decide
-            lambda = trapz(time, carrier) / 2;
+            carrier_w_loss = bherber.thesis.Tag.friis_path_loss(carrier, tag.distance, tag.params) * ...
+                            tag.vanatta_gain(tag.params.num_elements, tag.params.Fc, tag.params.Fc);
+            lambda = trapz(time, carrier_w_loss) / 2;
             if correlated_ook > lambda
                 res_bits = 1;
             else
@@ -322,7 +361,8 @@ classdef Tag < handle
             correlated_zero = trapz(time, mixed_zero);
 
             % 3. Combine Streams
-            combined_streams = abs(correlated_one) - abs(correlated_zero);
+            combined_streams = correlated_one - correlated_zero;
+%             fprintf("%0.2f %0.2fj\n", real(combined_streams), imag(combined_streams));
 
             % 4. Decide
             lambda = 0;

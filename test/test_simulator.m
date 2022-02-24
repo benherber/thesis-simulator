@@ -18,31 +18,40 @@ consts_struct = struct( ...
 consts_cell = struct2cell(consts_struct);
 simconsts = SimulationConstants(consts_cell{:});
 
-channel = @(given) given; %awgn(given, 10, "measured", "linear");
+channel = @(signal) awgn_channel(signal, 10);
+% channel = @(signal, tag_modes, distances, params) signal;
 
-tags = [500;1;1];
+tags = [1000;1000;1000];
 tag_modes = [TagType.FSK_LO];
 
 sim = Simulator(tags, tag_modes, channel, simconsts);
 
 modded_steps = zeros(simconsts.simstep_sz, (simconsts.num_symbs * simconsts.sim_sym_ratio));
-for idx = 1:(simconsts.num_symbs * simconsts.sim_sym_ratio)
+for idx = 1:((simconsts.num_symbs + 1) * simconsts.sim_sym_ratio)
     modded_steps(:, idx) = sim.step();
 end
 
-modded_symbs = reshape(modded_steps, [simconsts.symb_sz, simconsts.num_symbs]);
+noisy_modded_steps = channel(modded_steps(:));
+modded_symbs = reshape(noisy_modded_steps, [simconsts.symb_sz, simconsts.num_symbs + 1]);
 
-sim.auto_align(modded_symbs(:));
+sim.auto_align();
 fprintf("delay: %f\n", sim.tag_delays(1))
 
-encoded_bits = sim.bits(1, :).';
-res_bits = zeros(numel(encoded_bits), 1);
-symb_times = reshape(sim.time, [simconsts.symb_sz, simconsts.num_symbs]);
-carrier_split = reshape(sim.carrier, [simconsts.symb_sz, simconsts.num_symbs]);
+correct = @(sig, samples) [sig(samples:end).'; zeros(samples, 1)];
+
+encoded_bits = sim.bits(1, :);
+res_bits = zeros(size(encoded_bits));
+mod_delay = floor(1 * sim.tag_delays(1));
+stop = simconsts.num_symbs * simconsts.symb_sz + mod_delay - 1;
+t = sim.time(mod_delay:stop);
+symb_times = reshape(t, [simconsts.symb_sz, simconsts.num_symbs]);
+carr = sim.carrier(mod_delay:stop);
+carrier_split = reshape(carr, [simconsts.symb_sz, simconsts.num_symbs]);
 f1 = simconsts.fsk_channel0.f1;
 f0 = simconsts.fsk_channel0.f0;
-advanced_sig = delayseq(modded_symbs(:), ceil(sim.tag_delays(1) / 2));
-advanced_sig = reshape(advanced_sig, [simconsts.symb_sz, simconsts.num_symbs]);
+sigcomplete = modded_symbs(:);
+sig = sigcomplete(mod_delay:stop);
+advanced_sig = reshape(sig, [simconsts.symb_sz, simconsts.num_symbs]);
 parfor idx = 1:simconsts.num_symbs
     res_bits(idx) = Tag.fsk_demodulate(advanced_sig(:, idx), carrier_split(:, idx), ... 
         symb_times(:, idx), f1, f0);

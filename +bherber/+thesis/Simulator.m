@@ -8,7 +8,7 @@
 classdef Simulator < handle
     %SIMULATOR object of backscatter tags.
     %   Simulator of system of backscatter tags communcating with a
-    %   basestation.
+    %   basestation. Effective range is ~300m.
 
     properties (GetAccess = public, SetAccess = private)
         tags (:, 1)bherber.thesis.Tag
@@ -33,14 +33,15 @@ classdef Simulator < handle
             % Get time
             this.time = (0:(1 / this.params.Fs):(this.params.total_time - (1 / this.params.Fs)));
 
-            % Carrier signal
-            this.carrier = complex(this.params.amplitude * sin(complex(2 * pi * this.params.Fc * this.time)));
+            % Init tags
+            tag_sz = size(tags, 2);
 
             % Init Channel
             this.channel = channel;
 
-            % Init tags
-            tag_sz = size(tags, 2);
+            % Carrier signal
+            this.carrier = complex(this.params.amplitude * sin(complex(2 * pi * this.params.Fc * this.time)));
+            noisy_carrier = channel(this.carrier);
 
             % Init Tag ID's
             this.tag_preambles = zeros(tag_sz, 8);
@@ -51,22 +52,26 @@ classdef Simulator < handle
 
             % Init Data
             this.bits = zeros(tag_sz, this.params.num_symbs);
+            tags_objs = repmat(bherber.thesis.Tag(0, 0, 0, bherber.thesis.TagType.OOK, ...
+                1, 1, 1, this.channel, this.params), 1, tag_sz);
             for idx = 1:tag_sz
                 % Get random data signal
-                bits = [this.tag_preambles(idx, :).'; randi([0, 1], this.params.num_symbs - 8, 1)];
+                bits = [this.tag_preambles(idx, :), randi([0, 1], 1, this.params.num_symbs - 8)];
                 this.bits(idx, :) = bits;
-                data = repelem(bits, this.params.symb_sz).';
+                data = repelem(bits, this.params.symb_sz);
+                data = [data, zeros(1, length(this.time) - length(data))].';
 
-                this.tags = [this.tags,bherber.thesis.Tag(tags(1, idx), tags(2, idx), tags(3, idx), ...
-                    tag_modes(idx), this.time, this.carrier, data, this.channel, this.params)];
+                tags_objs(idx) = bherber.thesis.Tag(tags(1, idx), tags(2, idx), tags(3, idx), ...
+                    tag_modes(idx), this.time, noisy_carrier, data, this.channel, this.params);
             end
+            this.tags = tags_objs;
 
             % Init Tag Delay Vector
             this.tag_delays = NaN(tag_sz, 1);
 
             % Init Simulation Time
             this.curr_step = int64(0);
-            this.total_steps = int64(this.params.num_symbs * this.params.sim_sym_ratio);
+            this.total_steps = int64((this.params.num_symbs + 1) * this.params.sim_sym_ratio);
 
             gcp;
         end
@@ -75,22 +80,24 @@ classdef Simulator < handle
             %STEP through one frame of the simulation
             %   Step one 1us frame in time through the simulation for the
             %   entire system of tags.
+            %   NOTE: Requires noise to be applied to signal post-steps.
 
             if this.curr_step > this.total_steps
                 error("ATTEMPTED TO SIMULATE TOO MANY STEPS");
             end
 
-            res = zeros(1, this.params.simstep_sz);
+            res = zeros(length(this.tags), this.params.simstep_sz);
 
             for idx = 1:numel(this.tags)
                 curr = this.tags(idx);
-                res = res(1, :) + curr.step();
+                res(idx, :) = curr.step();
             end
+
 
             this.curr_step = this.curr_step + 1;
         end
 
-        function res = auto_align(this, signal)
+        function res = auto_align(this)
             %AUTO_ALIGN each received signal.
             %   Find delays of each received tag signal based off of given
             %   preambles.
@@ -100,40 +107,12 @@ classdef Simulator < handle
                 return;
             end
 
-            curr_samps = 8 * this.params.symb_sz;
-            t = this.time(1:curr_samps);
-            carr = this.carrier(1:curr_samps);
-            opts = this.params;
-            symb_size = this.params.symb_sz;
-            tag_preams = this.tag_preambles;
-            thetags = this.tags;
-            delays = this.tag_delays;
+            calcdelay = @(distance) floor((distance / physconst("Lightspeed")) * this.params.Fs);
+
             for idx = 1:length(this.tags)
-                preamble = repelem(tag_preams(idx, :), symb_size).';
-                if thetags(idx).mode == bherber.thesis.TagType.OOK
-                    modded_preamble = bherber.thesis.Tag.modulate_by_ook(carr, preamble, opts);
-                else
-                    if thetags(idx).mode == bherber.thesis.TagType.FSK_LO
-                        f1 = opts.fsk_channel0.f1;
-                        f0 = opts.fsk_channel0.f0;
-
-                    elseif thetags(idx).mode == bherber.thesis.TagType.FSK_HI
-                        f1 = opts.fsk_channel1.f1;
-                        f0 = opts.fsk_channel1.f0;
-                    else
-                        f1 = 0;
-                        f0 = 0;
-                        error("BAD MODE");
-                    end
-
-                    modded_preamble = bherber.thesis.Tag.modulate_by_fsk(t, carr, preamble, opts, f1, f0);
-
-                end
-
-                delays(idx) = finddelay(modded_preamble, signal);
-
+                fprintf("idx:%d dist:%f, %f\n", idx, this.tags(idx).distance, calcdelay(this.tags(idx).distance));
+                this.tag_delays(idx) = calcdelay(this.tags(idx).distance);
             end
-            this.tag_delays = delays;
 
             res = isempty(this.tag_delays(isnan(this.tag_delays)));
         end

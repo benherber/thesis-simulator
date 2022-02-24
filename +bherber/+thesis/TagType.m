@@ -5,7 +5,7 @@ classdef TagType
     enumeration
         FSK_LO
         FSK_HI
-        FSK_RANDOM
+        FREQ_HOP
         OOK
     end
 end
