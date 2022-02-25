@@ -144,37 +144,6 @@ classdef Tag < handle
                     sim_params.pattern_len);
             end
 
-            if mode ~= bherber.thesis.TagType.OOK
-                if mode == bherber.thesis.TagType.FREQ_HOP
-                    shaped_time = reshape(time, [round(length(time) / (this.params.num_symbs + 1)), ...
-                        this.params.num_symbs + 1]).';
-                    square_one = zeros(this.params.num_symbs + 1, ...
-                        round(length(time) / (this.params.num_symbs + 1)));
-                    square_zero = zeros(this.params.num_symbs + 1, ...
-                        round(length(time) / (this.params.num_symbs + 1)));
-                    for idx = 1:this.params.num_symbs
-                        channel_idx = mod(idx, sim_params.pattern_len);
-                        if channel_idx == 0; channel_idx = sim_params.pattern_len; end
-                        f0 = this.params.freq_channels(this.fh_pattern(channel_idx)).f0;
-                        f1 = this.params.freq_channels(this.fh_pattern(channel_idx)).f1;
-                        square_one(idx, :) = square(f1 * 2 * pi * shaped_time(idx, :));
-                        square_zero(idx, :) = square(f0 * 2 * pi * shaped_time(idx, :));
-                    end
-                    this.square_one = this.delay(square_one(:));
-                    this.square_zero = this.delay(square_zero(:));
-                else
-                    if mode == bherber.thesis.TagType.FSK_LO
-                        f0 = this.params.freq_channels(1).f0;
-                        f1 = this.params.freq_channels(1).f1;
-                    elseif mode == bherber.thesis.TagType.FSK_HI
-                        f0 = this.params.freq_channels(2).f0;
-                        f1 = this.params.freq_channels(2).f1;
-                    end
-                    this.square_one = this.delay(square(f1 * 2 * pi * time));
-                    this.square_zero = this.delay(square(f0 * 2 * pi * time));
-                end
-            end
-
         end
 
         % ----------------------------------------------------------------------- %
@@ -203,6 +172,44 @@ classdef Tag < handle
                 n {mustBeFinite, mustBeScalarOrEmpty, mustBePositive} = 1
             end
 
+            if ~this.is_active
+                res = zeros(1, this.params.simstep_sz);
+                return
+            end
+
+            if this.curr_step == 0
+                if this.mode ~= bherber.thesis.TagType.OOK
+                    if this.mode == bherber.thesis.TagType.FREQ_HOP
+                        shaped_time = reshape(this.time, [round(length(this.time) / (this.params.num_symbs + 1)), ...
+                            this.params.num_symbs + 1]);
+                        sq_one = zeros(round(length(this.time) / (this.params.num_symbs + 1)), ...
+                            this.params.num_symbs + 1);
+                        sq_zero = zeros(round(length(this.time) / (this.params.num_symbs + 1)), ...
+                            this.params.num_symbs + 1);
+                        for idx = 1:this.params.num_symbs
+                            channel_idx = mod(idx, this.params.pattern_len);
+                            if channel_idx == 0; channel_idx = this.params.pattern_len; end
+                            f0 = this.params.freq_channels(this.fh_pattern(channel_idx)).f0;
+                            f1 = this.params.freq_channels(this.fh_pattern(channel_idx)).f1;
+                            sq_one(:, idx) = square(f1 * 2 * pi * shaped_time(:, idx));
+                            sq_zero(:, idx) = square(f0 * 2 * pi * shaped_time(:, idx));
+                        end
+                        this.square_one = this.delay(sq_one(:));
+                        this.square_zero = this.delay(sq_zero(:));
+                    else
+                        if this.mode == bherber.thesis.TagType.FSK_LO
+                            f0 = this.params.freq_channels(1).f0;
+                            f1 = this.params.freq_channels(1).f1;
+                        elseif this.mode == bherber.thesis.TagType.FSK_HI
+                            f0 = this.params.freq_channels(2).f0;
+                            f1 = this.params.freq_channels(2).f1;
+                        end
+                        this.square_one = this.delay(square(f1 * 2 * pi * this.time));
+                        this.square_zero = this.delay(square(f0 * 2 * pi * this.time));
+                    end
+                end
+            end
+
             start_pt = uint64(this.curr_step * this.params.simstep_sz + 1);
             stop_pt = uint64(start_pt + (n * this.params.simstep_sz) - 1);
 
@@ -212,8 +219,6 @@ classdef Tag < handle
 
             cut_carrier = this.carrier(start_pt:stop_pt);
             cut_data = this.data(start_pt:stop_pt);
-            cut_sq_one = this.square_one(start_pt:stop_pt);
-            cut_sq_zero = this.square_zero(start_pt:stop_pt);
 
 %             noisy_carr = this.channel(cut_carrier);
             cut_carrier = bherber.thesis.Tag.friis_path_loss(cut_carrier, ...
@@ -221,6 +226,8 @@ classdef Tag < handle
             if this.mode == bherber.thesis.TagType.OOK
                 res = bherber.thesis.Tag.modulate_by_ook(cut_carrier, cut_data, this.params);
             else
+                cut_sq_one = this.square_one(start_pt:stop_pt);
+                cut_sq_zero = this.square_zero(start_pt:stop_pt);
                 if this.mode == bherber.thesis.TagType.FREQ_HOP
                     symb_number = ceil(this.curr_step / this.params.sim_sym_ratio);
                     pattern_idx = mod(symb_number, this.params.pattern_len);
@@ -351,6 +358,52 @@ classdef Tag < handle
             end
 
             % 1. Freq mix
+            all_ones = square((f1) * 2 * pi * time) .* carrier;
+            all_zeros = square((f0) * 2 * pi * time) .* carrier;
+            mixed_one = signal .* all_ones;
+            mixed_zero = signal .* all_zeros;
+
+            % 2. Integrate and sharpen
+            correlated_one = trapz(time, mixed_one);
+            correlated_zero = trapz(time, mixed_zero);
+
+            % 3. Combine Streams
+            combined_streams = correlated_one - correlated_zero;
+%             fprintf("%0.2f %0.2fj\n", real(combined_streams), imag(combined_streams));
+
+            % 4. Decide
+            lambda = 0;
+            if combined_streams > lambda
+                res_bits = 1;
+            else
+                res_bits = 0;
+            end
+
+        end
+
+        % --------------------------------------------------------------- %
+        function res_bits = fh_demodulate(signal, carrier, time, params)
+            %FSK_DEMODULATE a signal
+            %   Demodulate a signal modulated by frequency-shift keying with
+            %   frequencies f1 and f0 corresponding to 'on' & 'off'
+            %   respectively.
+
+            arguments
+                signal (1, :)
+                carrier (1, :) {mustBeFinite, mustBeNonmissing}
+                time (1, :) {mustBeFinite, mustBeReal}
+                params bherber.thesis.SimulationConstants
+            end
+
+            % 1. Freq Presence Test
+            filter_channels = zeros(params.num_channels, length(signal));
+            for idx = 1:params.num_channels
+                lo = params.freq_channels(idx).f0 - (params.interchannel_spacing / 2);
+                hi = params.freq_channels(idx).f1 + (params.interchannel_spacing / 2);
+                filter_channels(idx, :) = bandpass(signal, [lo, hi], params.Fs);
+            end
+            
+            res = NaN(1, params.num_channels);
             all_ones = square((f1) * 2 * pi * time) .* carrier;
             all_zeros = square((f0) * 2 * pi * time) .* carrier;
             mixed_one = signal .* all_ones;

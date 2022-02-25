@@ -8,6 +8,7 @@ classdef SimulationConstants < handle
         freq_channels % Frequency channels for fsk/FSK-FH
         wavelen {mustBePositive} % Wavelength of Carrier
         fs_granularity {mustBePositive} % Sampling Granularity
+        interchannel_spacing {mustBePositive} % Spacing between frequency channels
         pattern_len {mustBePositive} % Length of Freq Hop Pattern
         num_channels {mustBePositive} % Number of frequency channels available
         Fs {mustBePositive} % Sampling frequency
@@ -64,6 +65,7 @@ classdef SimulationConstants < handle
                 f1 = Fb_base + (idx * Fb_step) + ((idx - 1) * Fb_channel_spacing);
                 this.freq_channels = [this.freq_channels, struct("f0", f0, "f1", f1)];
             end
+            this.interchannel_spacing = Fb_channel_spacing;
             this.num_channels = num_channels;
             this.pattern_len = pattern_len;
             this.wavelen = physconst("Lightspeed") / Fc;
