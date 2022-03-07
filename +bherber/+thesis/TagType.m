@@ -3,6 +3,7 @@ classdef TagType
     %   Type of backscatter tag in a passive wireless sensor network.
 
     enumeration
+        NULL
         FSK_LO
         FSK_HI
         FREQ_HOP

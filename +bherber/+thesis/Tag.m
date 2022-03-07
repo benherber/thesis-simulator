@@ -35,7 +35,7 @@ classdef Tag < handle
     end
 
     %%  Private Static Methods
-    methods (Static, Access = private)
+    methods (Static)
         function phase = find_phase(theta, wavelen, spacing, n)
             % FIND_PHASE Find phase shift of an element in a phased array.
             %   Given an impinging angle, wavelength, inter-element
@@ -82,7 +82,7 @@ classdef Tag < handle
                 power_loss = sim_params.wavelen / (4 * pi * distance);
 
                 % Calculate the resultant wave
-                res = signal * sqrt(2) * power_loss;
+                res = signal * power_loss;
             end
         end
 
@@ -134,19 +134,27 @@ classdef Tag < handle
             this.z = z;
             this.mode = mode;
             this.curr_step = int64(0);
-            this.carrier = this.delay(carrier);
-            this.data = this.delay(data);
+            this.carrier = carrier; % NO DELAY
+            this.data = data; % NO DELAY
             this.time = time;
             this.channel = channel;
 
-            if mode == bherber.thesis.TagType.FREQ_HOP
-                this.fh_pattern = randi([1, sim_params.num_channels], 1, ...
-                    sim_params.pattern_len);
-            end
-
         end
 
-        % ----------------------------------------------------------------------- %
+% ----------------------------------------------------------------------- %
+        
+        function res = generate_hoppattern(this)
+            if this.mode == bherber.thesis.TagType.FREQ_HOP
+                res = randi([1, this.params.num_channels], 1, ...
+                    this.params.pattern_len);
+                this.fh_pattern = res;
+            else
+                error("Tag is not in FREQ_HOP mode.");
+            end
+        end
+
+% ----------------------------------------------------------------------- %
+
         function activate(this)
             this.is_active = true;
         end
@@ -154,7 +162,8 @@ classdef Tag < handle
         function deactivate(this)
             this.is_active = false;
         end
-        % ----------------------------------------------------------------------- %
+
+% ----------------------------------------------------------------------- %
 
         function res = get.distance(this)
             %DISTANCE from basestation.
@@ -194,8 +203,8 @@ classdef Tag < handle
                             sq_one(:, idx) = square(f1 * 2 * pi * shaped_time(:, idx));
                             sq_zero(:, idx) = square(f0 * 2 * pi * shaped_time(:, idx));
                         end
-                        this.square_one = this.delay(sq_one(:));
-                        this.square_zero = this.delay(sq_zero(:));
+                        this.square_one = sq_one(:); % this.delay(sq_one(:));
+                        this.square_zero = sq_zero(:); % this.delay(sq_zero(:));
                     else
                         if this.mode == bherber.thesis.TagType.FSK_LO
                             f0 = this.params.freq_channels(1).f0;
@@ -204,8 +213,8 @@ classdef Tag < handle
                             f0 = this.params.freq_channels(2).f0;
                             f1 = this.params.freq_channels(2).f1;
                         end
-                        this.square_one = this.delay(square(f1 * 2 * pi * this.time));
-                        this.square_zero = this.delay(square(f0 * 2 * pi * this.time));
+                        this.square_one = square(f1 * 2 * pi * this.time); % this.delay(square(f1 * 2 * pi * this.time));
+                        this.square_zero = square(f0 * 2 * pi * this.time); % this.delay(square(f0 * 2 * pi * this.time));
                     end
                 end
             end
@@ -301,7 +310,6 @@ classdef Tag < handle
                 bherber.thesis.Tag.vanatta_gain(params.num_elements, params.Fc, params.Fc + f0);
 
             for idx = 1:length(f_modulation)
-
                 if data(idx) == 1
                     f_modulation(idx) = all_ones(idx);
                 else
@@ -326,24 +334,36 @@ classdef Tag < handle
             end
 
             % 1. Freq mix
-            mixed_ook = signal .* carrier;
+            global mixed;
+            global sig;
+            global filter;
+            sig = [sig, signal];
+            mixed_ook = (signal .* carrier);
+            mixed = [mixed, mixed_ook];
 
-            % 2. Integrate
-            correlated_ook = trapz(time, mixed_ook);
-%             fprintf("%0.2f+%0.2fj -> abs=%0.2f\n", real(correlated_ook), imag(correlated_ook), abs(correlated_ook));
+            % 2. Filter
+            filtered = lowpass(mixed_ook, tag.params.symb_freq * 2, tag.params.Fs);
+            filter = [filter, filtered];
 
-            % 3. Decide
-            carrier_w_loss = bherber.thesis.Tag.friis_path_loss(carrier, tag.distance, tag.params) * ...
-                            tag.vanatta_gain(tag.params.num_elements, tag.params.Fc, tag.params.Fc);
-            lambda = trapz(time, carrier_w_loss) / 2;
-            if correlated_ook > lambda
+            % 3. Integrate
+            correlated_ook = mean(filtered);
+%             fprintf("%0.10f\n", abs(correlated_ook));
+            global points;
+            points = [points; [real(correlated_ook), imag(correlated_ook)]];
+            
+            % 4. Decide
+            expected_amplitude = tag.params.amplitude * ...
+                ((tag.params.wavelen / (4 * pi * tag.distance)) ^ 2) * ...
+                 tag.vanatta_gain(tag.params.num_elements, tag.params.Fc, tag.params.Fc);
+            lambda = (expected_amplitude * tag.params.amplitude) / 4;
+            if real(correlated_ook) > lambda
                 res_bits = 1;
             else
                 res_bits = 0;
             end
         end
 
-        function res_bits = fsk_demodulate(signal, carrier, time, f1, f0)
+        function res_bits = fsk_demodulate(signal, carrier, time, f1, f0, params)
             %FSK_DEMODULATE a signal
             %   Demodulate a signal modulated by frequency-shift keying with
             %   frequencies f1 and f0 corresponding to 'on' & 'off'
@@ -355,25 +375,32 @@ classdef Tag < handle
                 time (1, :) {mustBeFinite, mustBeReal}
                 f1 {mustBeNumeric, mustBeReal}
                 f0 {mustBeNumeric, mustBeReal}
+                params bherber.thesis.SimulationConstants
             end
 
             % 1. Freq mix
-            all_ones = square((f1) * 2 * pi * time) .* carrier;
-            all_zeros = square((f0) * 2 * pi * time) .* carrier;
+            all_ones = square(f1 * 2 * pi * time) .* carrier;
+            all_zeros = square(f0 * 2 * pi * time) .* carrier;
             mixed_one = signal .* all_ones;
             mixed_zero = signal .* all_zeros;
 
-            % 2. Integrate and sharpen
-            correlated_one = trapz(time, mixed_one);
-            correlated_zero = trapz(time, mixed_zero);
+            % 2. Filter
+            filtered_one = lowpass(mixed_one, params.Fc / 4, params.Fs);
+            filtered_zero = lowpass(mixed_zero, params.Fc / 4, params.Fs);
 
-            % 3. Combine Streams
+            % 3. Mean
+            correlated_one = mean(filtered_one);
+            correlated_zero = mean(filtered_zero);
+
+            % 4. Combine Streams
             combined_streams = correlated_one - correlated_zero;
 %             fprintf("%0.2f %0.2fj\n", real(combined_streams), imag(combined_streams));
+%             hold on
+%             scatter(gca, real(combined_streams), imag(combined_streams), "filled"); 
 
             % 4. Decide
             lambda = 0;
-            if combined_streams > lambda
+            if real(combined_streams) > lambda
                 res_bits = 1;
             else
                 res_bits = 0;
@@ -394,6 +421,9 @@ classdef Tag < handle
                 time (1, :) {mustBeFinite, mustBeReal}
                 params bherber.thesis.SimulationConstants
             end
+
+            % 1. DEHOP
+            % 2. FSK DEMODULATOR
 
             % 1. Freq Presence Test
             filter_channels = zeros(params.num_channels, length(signal));

@@ -40,7 +40,7 @@ classdef Simulator < handle
             this.channel = channel;
 
             % Carrier signal
-            this.carrier = complex(this.params.amplitude * sin(complex(2 * pi * this.params.Fc * this.time)));
+            this.carrier = this.params.amplitude * cos(2 * pi * this.params.Fc * this.time);
             noisy_carrier = channel(this.carrier);
 
             % Init Tag ID's
@@ -73,8 +73,27 @@ classdef Simulator < handle
             this.curr_step = int64(0);
             this.total_steps = int64((this.params.num_symbs + 1) * this.params.sim_sym_ratio);
 
-            gcp;
-        end
+            % Set up Hop-Patterns
+            seen_patterns = [];
+            for idx = 1:tag_sz
+                if this.tags(idx).mode == bherber.thesis.TagType.FREQ_HOP
+                    seen_patterns = this.unique_pattern(idx, seen_patterns);
+                end
+            end
+            
+            end
+
+            function res = unique_pattern(this, idx, seen_patterns)
+                    pattern = this.tags(idx).generate_hoppattern();
+                    for jdx = 1:length(seen_patterns)
+                        if isequal(seen_patterns(idx, :), pattern)
+                            seen_patterns = this.unique_pattern(seen_patterns);
+                        else
+                            seen_patterns = [seen_patterns; pattern];
+                        end
+                    end
+                res = seen_patterns;
+            end
 
         function res = step(this)
             %STEP through one frame of the simulation
