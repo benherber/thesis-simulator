@@ -41,7 +41,7 @@ classdef Simulator < handle
 
             % Carrier signal
             this.carrier = this.params.amplitude * cos(2 * pi * this.params.Fc * this.time);
-            noisy_carrier = channel(this.carrier);
+%             noisy_carrier = channel(this.carrier);
 
             % Init Tag ID's
             this.tag_preambles = zeros(tag_sz, 8);
@@ -62,7 +62,7 @@ classdef Simulator < handle
                 data = [data, zeros(1, length(this.time) - length(data))].';
 
                 tags_objs(idx) = bherber.thesis.Tag(tags(1, idx), tags(2, idx), tags(3, idx), ...
-                    tag_modes(idx), this.time, noisy_carrier, data, this.channel, this.params);
+                    tag_modes(idx), this.time, this.carrier, data, this.channel, this.params);
             end
             this.tags = tags_objs;
 
@@ -105,11 +105,10 @@ classdef Simulator < handle
                 error("ATTEMPTED TO SIMULATE TOO MANY STEPS");
             end
 
-            res = zeros(length(this.tags), this.params.simstep_sz);
+            res = zeros(1, this.params.simstep_sz);
 
-            for idx = 1:numel(this.tags)
-                curr = this.tags(idx);
-                res(idx, :) = curr.step();
+            for idx = 1:length(this.tags)
+                res = res + this.tags(idx).step();
             end
 
 
