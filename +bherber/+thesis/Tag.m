@@ -18,7 +18,7 @@ classdef Tag < handle
         mode bherber.thesis.TagType % Modulation mode
         curr_step int64 {mustBeScalarOrEmpty} % Current time-slice in modulation
         carrier (:, 1) {mustBeFinite, mustBeNonmissing} % Delayed carrier signal
-        data (:, 1) {mustBeNonmissing, mustBeInRange(data, 0, 1)} % Delayed data signal
+        bits (:, 1) {mustBeNonmissing, mustBeInRange(bits, 0, 1)} % bitstream
         time (:, 1) {mustBeReal, mustBeFinite, mustBeNonmissing} % Time signal
         channel function_handle % Propagation channel
         fh_pattern (:, 1) = [];
@@ -36,18 +36,6 @@ classdef Tag < handle
 
     %%  Private Static Methods
     methods (Static)
-        function phase = find_phase(theta, wavelen, spacing, n)
-            % FIND_PHASE Find phase shift of an element in a phased array.
-            %   Given an impinging angle, wavelength, inter-element
-            %   spacing, and element number in a phased array, calculate
-            %   the phase shift.
-
-            phase = ((2.0 * pi) / wavelen) * spacing * n * cos(theta);  % FIXME: look at again
-
-        end
-
-        % ----------------------------------------------------------------------- %
-
         function res = vanatta_gain(num_elements, fc, fb)
             %VANATTA_GAIN of a backscatter tag in a Van Atta Configuration.
             %   Calculate gain of a backscatter tag in a Van Atta
@@ -59,10 +47,12 @@ classdef Tag < handle
             lambda_b = C / fb;
             spacing = lambda_c / 2;
 
+            find_phase = @(wavelen, spacing, n) ((2.0 * pi) / wavelen) * spacing * n;
+
             for idx = 1:num_elements
                 tmp = tmp + exp(1i * ...
-                    (bherber.thesis.Tag.find_phase(0, lambda_b, spacing, (idx - 1)) ...
-                    - bherber.thesis.Tag.find_phase(0, lambda_c, spacing, (idx - 1))));
+                    (find_phase(lambda_b, spacing, (idx - 1)) ...
+                    - find_phase(lambda_c, spacing, (idx - 1))));
             end
 
             res = tmp;
@@ -111,7 +101,7 @@ classdef Tag < handle
 
     methods
 
-        function this = Tag(x, y, z, mode, time, carrier, data, channel, sim_params)
+        function this = Tag(x, y, z, mode, time, carrier, bits, channel, sim_params)
             %TAG constructor
             %   Create a tag a specific distance from a basestation in 3D
             %   space.
@@ -123,7 +113,7 @@ classdef Tag < handle
                 mode bherber.thesis.TagType % Modulation mode
                 time (:, 1) {mustBeReal, mustBeFinite, mustBeNonmissing} % Time signal
                 carrier (:, 1) {mustBeFinite, mustBeNonmissing} % Delayed carrier signal
-                data (:, 1) {mustBeNonmissing, mustBeInRange(data, 0, 1)} % Delayed data signal
+                bits (1, :) {mustBeNonmissing, mustBeInRange(bits, 0, 1)} % bitstream
                 channel function_handle % Propagation channel
                 sim_params bherber.thesis.SimulationConstants % Simulation parameters
             end
@@ -135,7 +125,7 @@ classdef Tag < handle
             this.mode = mode;
             this.curr_step = int64(0);
             this.carrier = carrier; % NO DELAY
-            this.data = data; % NO DELAY
+            this.bits = [bits, 0]; % NO DELAY
             this.time = time;
             this.channel = channel;
 
@@ -173,12 +163,11 @@ classdef Tag < handle
             res = sqrt((this.x)^2 + (this.y)^2 + (this.z)^2);
         end
 
-        function res = step(this, n)
+        function res = step(this)
             %STEP the object 'n' simulation frame(s) forward
 
             arguments
                 this bherber.thesis.Tag
-                n {mustBeFinite, mustBeScalarOrEmpty, mustBePositive} = 1
             end
 
             if ~this.is_active
@@ -186,63 +175,54 @@ classdef Tag < handle
                 return
             end
 
-            if this.curr_step == 0
-                if this.mode ~= bherber.thesis.TagType.OOK
-                    if this.mode == bherber.thesis.TagType.FREQ_HOP
-                        shaped_time = reshape(this.time, [round(length(this.time) / (this.params.num_symbs + 1)), ...
-                            this.params.num_symbs + 1]);
-                        sq_one = zeros(round(length(this.time) / (this.params.num_symbs + 1)), ...
-                            this.params.num_symbs + 1);
-                        sq_zero = zeros(round(length(this.time) / (this.params.num_symbs + 1)), ...
-                            this.params.num_symbs + 1);
-                        for idx = 1:this.params.num_symbs
-                            channel_idx = mod(idx, this.params.pattern_len);
-                            if channel_idx == 0; channel_idx = this.params.pattern_len; end
-                            f0 = this.params.freq_channels(this.fh_pattern(channel_idx)).f0;
-                            f1 = this.params.freq_channels(this.fh_pattern(channel_idx)).f1;
-                            sq_one(:, idx) = square(f1 * 2 * pi * shaped_time(:, idx));
-                            sq_zero(:, idx) = square(f0 * 2 * pi * shaped_time(:, idx));
-                        end
-                        this.square_one = sq_one(:); % this.delay(sq_one(:));
-                        this.square_zero = sq_zero(:); % this.delay(sq_zero(:));
-                    else
-                        if this.mode == bherber.thesis.TagType.FSK_LO
-                            f0 = this.params.freq_channels(1).f0;
-                            f1 = this.params.freq_channels(1).f1;
-                        elseif this.mode == bherber.thesis.TagType.FSK_HI
-                            f0 = this.params.freq_channels(2).f0;
-                            f1 = this.params.freq_channels(2).f1;
-                        end
-                        this.square_one = square(f1 * 2 * pi * this.time); % this.delay(square(f1 * 2 * pi * this.time));
-                        this.square_zero = square(f0 * 2 * pi * this.time); % this.delay(square(f0 * 2 * pi * this.time));
-                    end
-                end
-            end
-
-            start_pt = uint64(this.curr_step * this.params.simstep_sz + 1);
-            stop_pt = uint64(start_pt + (n * this.params.simstep_sz) - 1);
-
-            if stop_pt > length(this.time)
+            if this.curr_step > (((this.params.num_symbs + 1) * this.params.sim_sym_ratio) - 1)
                 error("SIMULATION RAN OUT OF BOUNDS");
             end
 
-            cut_carrier = this.carrier(start_pt:stop_pt);
-            cut_data = this.data(start_pt:stop_pt);
+            delay = 2 * this.distance / physconst("Lightspeed");
+            time_slice = (0:(1 / this.params.Fs):(this.params.simstep_sz * (1 / this.params.Fs) - (1 / this.params.Fs))) ...
+                + double(this.curr_step * this.params.simstep_sz) * (1 / this.params.Fs) ...
+                - delay;
+            invalid_times = time_slice < 0;
 
-%             noisy_carr = this.channel(cut_carrier);
-            cut_carrier = bherber.thesis.Tag.friis_path_loss(cut_carrier, ...
-            this.distance, this.params);
-            if this.mode == bherber.thesis.TagType.OOK
-                res = bherber.thesis.Tag.modulate_by_ook(cut_carrier, cut_data, this.params);
+            carrier_slice = this.params.amplitude * cos(2 * pi * this.params.Fc * time_slice);
+            carrier_slice(invalid_times) = 0;
+
+            curr_symb = ceil((double(this.curr_step) + 1) / this.params.sim_sym_ratio);
+            prev_steps_symb = ceil(double(this.curr_step) / this.params.sim_sym_ratio);
+            if this.curr_step == 0
+                data = repelem([0, this.bits(1)], this.params.simstep_sz);
             else
-                cut_sq_one = this.square_one(start_pt:stop_pt);
-                cut_sq_zero = this.square_zero(start_pt:stop_pt);
+                bits_o_interest = [this.bits(prev_steps_symb), this.bits(curr_symb)];
+                data = repelem(bits_o_interest, this.params.simstep_sz);
+            end
+            delay_samples = floor(delay * this.params.Fs);
+            data_start = this.params.simstep_sz + 1 - delay_samples;
+            data_stop = data_start + this.params.simstep_sz - 1;
+            data = data(data_start:data_stop);
+
+            cut_carrier = bherber.thesis.Tag.friis_path_loss( ...
+                carrier_slice, this.distance, this.params);
+            if this.mode == bherber.thesis.TagType.OOK
+                res = bherber.thesis.Tag.modulate_by_ook(carrier_slice, data, this.params);
+            else
                 if this.mode == bherber.thesis.TagType.FREQ_HOP
-                    symb_number = ceil(this.curr_step / this.params.sim_sym_ratio);
-                    pattern_idx = mod(symb_number, this.params.pattern_len);
+                    pattern_idx = mod(curr_symb, this.params.pattern_len);
                     if pattern_idx == 0; pattern_idx = this.params.pattern_len; end
                     f0 = this.params.freq_channels(this.fh_pattern(pattern_idx)).f0;
                     f1 = this.params.freq_channels(this.fh_pattern(pattern_idx)).f1;
+                    cut_sq_one = zeros(1, this.params.simstep_sz);
+                    cut_sq_zero = zeros(1, this.params.simstep_sz);
+                    cut_sq_one((delay_samples + 1):end) = square(2 * pi * f1 * time_slice((delay_samples + 1):end));
+                    cut_sq_zero((delay_samples + 1):end) = square(2 * pi * f0 * time_slice((delay_samples + 1):end));
+                    if this.curr_step > 0
+                        prev_pattern_idx = mod(prev_steps_symb, this.params.pattern_len);
+                        if prev_pattern_idx == 0; prev_pattern_idx = this.params.pattern_len; end
+                        prev_f0 = this.params.freq_channels(this.fh_pattern(prev_pattern_idx)).f0;
+                        prev_f1 = this.params.freq_channels(this.fh_pattern(prev_pattern_idx)).f1;
+                        cut_sq_one(1:delay_samples) = square(2 * pi * prev_f1 * time_slice(1:delay_samples));
+                        cut_sq_zero(1:delay_samples) = square(2 * pi * prev_f0 * time_slice(1:delay_samples));
+                    end
                 else
                     if this.mode == bherber.thesis.TagType.FSK_LO
                         channel_idx = 1;
@@ -251,15 +231,16 @@ classdef Tag < handle
                     end
                     f0 = this.params.freq_channels(channel_idx).f0;
                     f1 = this.params.freq_channels(channel_idx).f1;
+                    cut_sq_one = square(2 * pi * f1 * time_slice);
+                    cut_sq_zero = square(2 * pi * f0 * time_slice);
                 end
-                res = bherber.thesis.Tag.modulate_by_fsk(cut_carrier, cut_data, ...
+                res = bherber.thesis.Tag.modulate_by_fsk(cut_carrier, data, ...
                     this.params, cut_sq_one, cut_sq_zero, f1, f0);
             end
-%             noisy_res = this.channel(res);
             res = bherber.thesis.Tag.friis_path_loss(res, ...
                 this.distance, this.params);
 
-            this.curr_step = this.curr_step + n;
+            this.curr_step = this.curr_step + 1;
         end
 
     end

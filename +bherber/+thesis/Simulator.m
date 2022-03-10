@@ -40,7 +40,7 @@ classdef Simulator < handle
             this.channel = channel;
 
             % Carrier signal
-            this.carrier = this.params.amplitude * cos(2 * pi * this.params.Fc * this.time);
+%             this.carrier = this.params.amplitude * cos(2 * pi * this.params.Fc * this.time);
 %             noisy_carrier = channel(this.carrier);
 
             % Init Tag ID's
@@ -58,11 +58,9 @@ classdef Simulator < handle
                 % Get random data signal
                 bits = [this.tag_preambles(idx, :), randi([0, 1], 1, this.params.num_symbs - 8)];
                 this.bits(idx, :) = bits;
-                data = repelem(bits, this.params.symb_sz);
-                data = [data, zeros(1, length(this.time) - length(data))].';
 
                 tags_objs(idx) = bherber.thesis.Tag(tags(1, idx), tags(2, idx), tags(3, idx), ...
-                    tag_modes(idx), this.time, this.carrier, data, this.channel, this.params);
+                    tag_modes(idx), this.time, this.carrier, bits, this.channel, this.params);
             end
             this.tags = tags_objs;
 
@@ -120,60 +118,14 @@ classdef Simulator < handle
             %   Find delays of each received tag signal based off of given
             %   preambles.
 
-            if (this.curr_step / this.params.sim_sym_ratio) < 8
-                res = false;
-                return;
-            end
-
-            calcdelay = @(distance) floor((distance / physconst("Lightspeed")) * this.params.Fs);
+            calcdelay = @(distance) floor((2 * distance / physconst("Lightspeed")) * this.params.Fs);
 
             for idx = 1:length(this.tags)
-                fprintf("idx:%d dist:%f, %f\n", idx, this.tags(idx).distance, calcdelay(this.tags(idx).distance));
+%                 fprintf("idx:%d dist:%f, %f\n", idx, this.tags(idx).distance, calcdelay(this.tags(idx).distance));
                 this.tag_delays(idx) = calcdelay(this.tags(idx).distance);
             end
 
             res = isempty(this.tag_delays(isnan(this.tag_delays)));
-        end
-    end
-
-    methods (Static, Access = public)
-        function gray = dec2gray(num)
-            %DEC2GRAY conversion.
-            %   Convert a decimal number to a gray encoding. Return array.
-
-            arguments
-                num {mustBeFinite, mustBePositive}
-            end
-
-            % Convert to binary
-            bits = dec2bin(num);
-
-            % Convert to Gray
-            gray = zeros(size(bits), "logical");
-            gray(1) = bits(1);
-            for idx = (2:numel(bits))
-                gray(idx) = xor(logical(str2double(bits(idx - 1))), ...
-                    logical(str2double(bits(idx))));
-            end
-        end
-
-        function dec = gray2dec(gray)
-            %GRAY2DEC conversion.
-            %   Convert a decimal number to a gray encoding. Return array.
-
-            arguments
-                gray {mustBeFinite}
-            end
-
-            % Convert to Gray
-            bits = zeros(size(gray), "like", gray);
-            bits(1) = gray(1);
-            for idx = (2:length(gray))
-                bits(idx) = xor(bits(idx - 1), gray(idx));
-            end
-
-            % Convert to Decimal
-            dec = bin2dec(num2str(bits));
         end
     end
 end

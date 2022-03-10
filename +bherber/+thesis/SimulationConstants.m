@@ -59,13 +59,12 @@ classdef SimulationConstants < handle
             end
 
             this.Fc = Fc;
-            this.freq_channels = [struct("f0", 100e3, "f1", 200e3)];
-%             this.freq_channels = [];
-%             for idx = 1:num_channels
-%                 f0 = Fb_base + ((idx - 1) * (Fb_step + Fb_channel_spacing));
-%                 f1 = Fb_base + (idx * Fb_step) + ((idx - 1) * Fb_channel_spacing);
-%                 this.freq_channels = [this.freq_channels, struct("f0", f0, "f1", f1)];
-%             end
+            this.freq_channels = [];
+            for idx = 1:num_channels
+                f0 = Fb_base + ((idx - 1) * (Fb_step + Fb_channel_spacing));
+                f1 = Fb_base + (idx * Fb_step) + ((idx - 1) * Fb_channel_spacing);
+                this.freq_channels = [this.freq_channels, struct("f0", f0, "f1", f1)];
+            end
             this.interchannel_spacing = Fb_channel_spacing;
             this.num_channels = num_channels;
             this.pattern_len = pattern_len;
