@@ -14,7 +14,7 @@ classdef OOKTag < bherber.thesis.tags.Tag
 
     methods (Access = public)
 
-        function this = OOKTag(x, y, z, mode, bits, sim_params)
+        function this = OOKTag(x, y, z, mode, bits, sim_params, options)
             %OOK_TAG constructor
             %   Create a tag a specific distance from a basestation in 3D
             %   space.
@@ -26,9 +26,12 @@ classdef OOKTag < bherber.thesis.tags.Tag
                 mode bherber.thesis.TagType % Modulation mode
                 bits (1, :) {mustBeNonmissing, mustBeInRange(bits, 0, 1)} % bitstream
                 sim_params bherber.thesis.SimulationConstants % Simulation parameters
+                options.snr_db = NaN;
+                options.complex_noise = false;
             end
 
-            this@bherber.thesis.tags.Tag(x, y, z, mode, bits, sim_params);
+            this@bherber.thesis.tags.Tag(x, y, z, mode, bits, sim_params, ...
+                snr_db=options.snr_db, complex_noise=options.complex_noise);
 
         end
 
@@ -43,8 +46,20 @@ classdef OOKTag < bherber.thesis.tags.Tag
             end
     
             details = this.step_data();
-            res = details.carrier_slice .* details.data .* ...
-                    this.vanatta_gain(this.params.num_elements, this.params.Fc, this.params.Fc);
+            pathloss = bherber.thesis.PathLoss.amplitude_factor(this.distance, this.params);
+            gain = this.vanatta_gain(this.params.num_elements, this.params.Fc, this.params.Fc);
+            res = details.carrier_slice .* pathloss .* details.data .* gain;
+
+            if ~isnan(this.snr_db)
+                linear_snr = 10 ^ (this.snr_db / 10);
+                expected_amplitude = this.params.amplitude * pathloss * gain;
+                linear_carrier_power = (expected_amplitude ^ 2) / 4; % ASSUMPTION: Uniform Random Data
+                signal_noise = bherber.thesis.channel_models.AWGNChannelModel.noise(...
+                    length(details.time_slice), linear_carrier_power, linear_snr, this.complex_noise);
+                res = res + signal_noise;
+            end
+
+            res = res * pathloss;
         end
     
 % ----------------------------------------------------------------------- %
@@ -56,8 +71,8 @@ classdef OOKTag < bherber.thesis.tags.Tag
                 signal (1, :)
             end
 
-            time_slice = (0:(1 / this.params.Fs):(this.params.symb_sz * (1 / this.params.Fs) - (1 / this.params.Fs))) ...
-                + (symb_num * double(this.params.symb_sz) * (1 / this.params.Fs));
+            time_slice = (0:(1 / this.params.Fs):(double(this.params.symb_sz) * (1 / this.params.Fs) - (1 / this.params.Fs))) ...
+                + ((symb_num - 1) * double(this.params.symb_sz) * (1 / this.params.Fs));
 
             carrier_slice = this.params.amplitude * cos(2 * pi * this.params.Fc * time_slice);
 
@@ -72,7 +87,7 @@ classdef OOKTag < bherber.thesis.tags.Tag
             
             % 4. Decide
             expected_amplitude = this.params.amplitude * ...
-                ((this.params.wavelen / (4 * pi * this.distance)) ^ 2) * ...
+                ((bherber.thesis.PathLoss.amplitude_factor(this.distance, this.params) .^ 2)) * ...
                  this.vanatta_gain(this.params.num_elements, this.params.Fc, this.params.Fc);
             lambda = (expected_amplitude * this.params.amplitude) / 4;
             if real(correlated_ook) > lambda
@@ -80,6 +95,13 @@ classdef OOKTag < bherber.thesis.tags.Tag
             else
                 res_bits = 0;
             end
+
+            global ook_mixed;
+            global ook_filtered;
+            global ook_correlated;
+            ook_mixed = [ook_mixed, mixed_ook];
+            ook_filtered = [ook_filtered, filtered];
+            ook_correlated = [ook_correlated, repelem(correlated_ook, this.params.symb_sz)];
         end
     end
 end

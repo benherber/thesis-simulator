@@ -21,6 +21,8 @@ classdef Tag < handle
         bits (:, 1) {mustBeNonmissing, mustBeInRange(bits, 0, 1)} % bitstream
         is_active logical = true; % Tag is currently active in simulation window
         params bherber.thesis.SimulationConstants % Simulation parameters
+        snr_db double % SNR of noise if applicable;
+        complex_noise logical % Apply complex noise
     end
 
     %%  Dependent Properties
@@ -77,7 +79,7 @@ classdef Tag < handle
 
     methods
 
-        function this = Tag(x, y, z, mode, bits, sim_params)
+        function this = Tag(x, y, z, mode, bits, sim_params, options)
             %TAG constructor
             %   Create a tag a specific distance from a basestation in 3D
             %   space.
@@ -89,6 +91,8 @@ classdef Tag < handle
                 mode bherber.thesis.TagType % Modulation mode
                 bits (1, :) {mustBeNonmissing, mustBeInRange(bits, 0, 1)} % bitstream
                 sim_params bherber.thesis.SimulationConstants % Simulation parameters
+                options.snr_db double = NaN;
+                options.complex_noise logical = false;
             end
 
             this.params = sim_params;
@@ -97,7 +101,9 @@ classdef Tag < handle
             this.z = z;
             this.mode = mode;
             this.curr_step = int64(0);
-            this.bits = [bits, 0]; % NO DELAY
+            this.bits = [bits, 0];
+            this.snr_db = options.snr_db;
+            this.complex_noise = options.complex_noise;
 
         end
 
@@ -130,10 +136,6 @@ classdef Tag < handle
 
         function res = step_data(this)
 
-            arguments
-                this bherber.thesis.Tag
-            end
-
             if this.curr_step > (((this.params.num_symbs + 1) * this.params.sim_sym_ratio) - 1)
                 error("SIMULATION RAN OUT OF BOUNDS");
             end
@@ -146,6 +148,13 @@ classdef Tag < handle
 
             carrier_slice = this.params.amplitude * cos(2 * pi * this.params.Fc * time_slice);
             carrier_slice(invalid_times) = 0;
+            if ~isnan(this.snr_db)
+                linear_snr = 10 ^ (this.snr_db / 10);
+                linear_carrier_power = (this.params.amplitude ^ 2) / 2;
+                carrier_noise = bherber.thesis.channel_models.AWGNChannelModel.noise(...
+                    length(time_slice), linear_carrier_power, linear_snr, this.complex_noise);
+                carrier_slice = carrier_slice + carrier_noise;
+            end
 
             curr_symb = ceil((double(this.curr_step) + 1) / this.params.sim_sym_ratio);
             prev_steps_symb = ceil(double(this.curr_step) / this.params.sim_sym_ratio);
@@ -155,7 +164,7 @@ classdef Tag < handle
                 bits_o_interest = [this.bits(prev_steps_symb), this.bits(curr_symb)];
                 data = repelem(bits_o_interest, this.params.simstep_sz);
             end
-            delay_samples = floor(delay * this.params.Fs);
+            delay_samples = ceil(delay * this.params.Fs);
             data_start = this.params.simstep_sz + 1 - delay_samples;
             data_stop = data_start + this.params.simstep_sz - 1;
             data = data(data_start:data_stop);

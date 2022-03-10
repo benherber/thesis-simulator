@@ -88,6 +88,8 @@ classdef FreqHopTag < bherber.thesis.tags.Tag
                     res(idx) = all_zeros(idx);
                 end
             end
+
+            res = res * (bherber.thesis.PathLoss.amplitude_factor(this.distance, this.params) .^ 2);
         end
     
 % ----------------------------------------------------------------------- %
@@ -99,7 +101,7 @@ classdef FreqHopTag < bherber.thesis.tags.Tag
                 signal (1, :)
             end
 
-            time_slice = (0:(1 / this.params.Fs):(this.params.symb_sz * (1 / this.params.Fs) - (1 / this.params.Fs))) ...
+            time_slice = (0:(1 / this.params.Fs):(double(this.params.symb_sz) * (1 / this.params.Fs) - (1 / this.params.Fs))) ...
                 + (symb_num * double(this.params.symb_sz) * (1 / this.params.Fs));
 
             carrier_slice = this.params.amplitude * cos(2 * pi * this.params.Fc * time_slice);

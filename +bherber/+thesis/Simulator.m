@@ -11,7 +11,7 @@ classdef Simulator < handle
     %   basestation. Effective range is ~300m.
 
     properties (GetAccess = public, SetAccess = private)
-        tags (:, 1)bherber.thesis.Tag
+        tags (:, 1)
         tag_preambles (:, 8) {mustBeFinite}
         curr_step int64
         total_steps int64
@@ -24,9 +24,18 @@ classdef Simulator < handle
     end
 
     methods
-        function this = Simulator(tags, tag_modes, channel, sim_params)
+        function this = Simulator(tags, tag_modes, channel, sim_params, snr_db, complex_noise)
             %SIMULATOR constructor
             %   Initialize and start simulator.
+
+            arguments
+                tags
+                tag_modes
+                channel
+                sim_params
+                snr_db = NaN;
+                complex_noise = false;
+            end
 
             this.params = sim_params;
 
@@ -40,7 +49,7 @@ classdef Simulator < handle
             this.channel = channel;
 
             % Carrier signal
-%             this.carrier = this.params.amplitude * cos(2 * pi * this.params.Fc * this.time);
+            this.carrier = this.params.amplitude * cos(2 * pi * this.params.Fc * this.time);
 %             noisy_carrier = channel(this.carrier);
 
             % Init Tag ID's
@@ -50,17 +59,46 @@ classdef Simulator < handle
                 this.tag_preambles(idx, :) = double(tag_id - '0');
             end
 
+            % Set up Hop-Patterns
+%             seen_patterns = [];
+%             for idx = 1:tag_sz
+%                 seen_patterns = this.unique_pattern(idx, seen_patterns);
+%             end
+
             % Init Data
             this.bits = zeros(tag_sz, this.params.num_symbs);
-            tags_objs = repmat(bherber.thesis.Tag(0, 0, 0, bherber.thesis.TagType.OOK, ...
-                1, 1, 1, this.channel, this.params), 1, tag_sz);
+            tags_objs = [];
             for idx = 1:tag_sz
                 % Get random data signal
-                bits = [this.tag_preambles(idx, :), randi([0, 1], 1, this.params.num_symbs - 8)];
+                bits = randi([0, 1], 1, this.params.num_symbs);
                 this.bits(idx, :) = bits;
 
-                tags_objs(idx) = bherber.thesis.Tag(tags(1, idx), tags(2, idx), tags(3, idx), ...
-                    tag_modes(idx), this.time, this.carrier, bits, this.channel, this.params);
+                switch tag_modes(idx)
+                    case bherber.thesis.TagType.OOK
+                        curr_tag = bherber.thesis.tags.OOKTag(...
+                            tags(1, idx), tags(2, idx), tags(3, idx), tag_modes(idx), ...
+                            bits, this.params, snr_db=snr_db, complex_noise=complex_noise);
+                    case bherber.thesis.TagType.FSK_LO
+                        curr_tag = bherber.thesis.tags.FSKTag(...
+                            tags(1, idx), tags(2, idx), tags(3, idx), tag_modes(idx), ...
+                            bits, this.params, this.params.freq_channels(1));
+                    case bherber.thesis.TagType.FSK_HI
+                        curr_tag = bherber.thesis.tags.FSKTag(...
+                            tags(1, idx), tags(2, idx), tags(3, idx), tag_modes(idx), ...
+                            bits, this.params, this.params.freq_channels(2));
+                    case bherber.thesis.TagType.FREQ_HOP
+                        curr_tag = bherber.thesis.tags.FreqHopTag(...
+                            tags(1, idx), tags(2, idx), tags(3, idx), tag_modes(idx), ...
+                            bits, this.params, this.params.freq_channels, seen_patterns(idx));
+                end
+
+                if isempty(tags_objs)
+                    tags_objs = repmat(curr_tag, 1, tag_sz);
+                else
+                    tags_objs(idx) = curr_tag; 
+                end
+                %bherber.thesis.Tag(tags(1, idx), tags(2, idx), tags(3, idx), ...
+%                     tag_modes(idx), this.time, this.carrier, bits, this.channel, this.params);
             end
             this.tags = tags_objs;
 
@@ -70,16 +108,8 @@ classdef Simulator < handle
             % Init Simulation Time
             this.curr_step = int64(0);
             this.total_steps = int64((this.params.num_symbs + 1) * this.params.sim_sym_ratio);
-
-            % Set up Hop-Patterns
-            seen_patterns = [];
-            for idx = 1:tag_sz
-                if this.tags(idx).mode == bherber.thesis.TagType.FREQ_HOP
-                    seen_patterns = this.unique_pattern(idx, seen_patterns);
-                end
-            end
             
-            end
+        end
 
             function res = unique_pattern(this, idx, seen_patterns)
                     pattern = this.tags(idx).generate_hoppattern();
@@ -118,7 +148,7 @@ classdef Simulator < handle
             %   Find delays of each received tag signal based off of given
             %   preambles.
 
-            calcdelay = @(distance) floor((2 * distance / physconst("Lightspeed")) * this.params.Fs);
+            calcdelay = @(distance) ceil((2 * distance / physconst("Lightspeed")) * this.params.Fs);
 
             for idx = 1:length(this.tags)
 %                 fprintf("idx:%d dist:%f, %f\n", idx, this.tags(idx).distance, calcdelay(this.tags(idx).distance));
