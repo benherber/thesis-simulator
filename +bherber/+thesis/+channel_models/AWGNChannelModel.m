@@ -1,4 +1,4 @@
-classdef AWGNChannelModel
+classdef AWGNChannelModel < bherber.thesis.channel_models.ChannelModel
     %ADDITIVE_GAUSSIAN_WHITE_NOISE Channel Model.
 
     properties

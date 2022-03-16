@@ -141,30 +141,30 @@ classdef Tag < handle
             end
 
             delay = 2 * this.distance / physconst("Lightspeed");
+            delay_samples = ceil(delay * this.params.Fs);
             time_slice = (0:(1 / this.params.Fs):(this.params.simstep_sz * (1 / this.params.Fs) - (1 / this.params.Fs))) ...
-                + double(this.curr_step * this.params.simstep_sz) * (1 / this.params.Fs) ...
-                - delay;
+                + (double(this.curr_step * this.params.simstep_sz + 1) * (1 / this.params.Fs)) ...
+                - ((delay_samples + 1) * (1 / this.params.Fs));
             invalid_times = time_slice < 0;
 
             carrier_slice = this.params.amplitude * cos(2 * pi * this.params.Fc * time_slice);
             carrier_slice(invalid_times) = 0;
-            if ~isnan(this.snr_db)
-                linear_snr = 10 ^ (this.snr_db / 10);
-                linear_carrier_power = (this.params.amplitude ^ 2) / 2;
-                carrier_noise = bherber.thesis.channel_models.AWGNChannelModel.noise(...
-                    length(time_slice), linear_carrier_power, linear_snr, this.complex_noise);
-                carrier_slice = carrier_slice + carrier_noise;
-            end
+%             if ~isnan(this.snr_db)
+%                 linear_snr = 10 ^ (this.snr_db / 10);
+%                 linear_carrier_power = (this.params.amplitude ^ 2) / 2;
+%                 carrier_noise = bherber.thesis.channel_models.AWGNChannelModel.noise(...
+%                     length(time_slice), linear_carrier_power, linear_snr, this.complex_noise);
+%                 carrier_slice = carrier_slice + carrier_noise;
+%             end
 
             curr_symb = ceil((double(this.curr_step) + 1) / this.params.sim_sym_ratio);
             prev_steps_symb = ceil(double(this.curr_step) / this.params.sim_sym_ratio);
             if this.curr_step == 0
-                data = repelem([0, this.bits(1)], this.params.simstep_sz);
+                data = repelem([0, this.bits(1)], int32(this.params.simstep_sz));
             else
                 bits_o_interest = [this.bits(prev_steps_symb), this.bits(curr_symb)];
-                data = repelem(bits_o_interest, this.params.simstep_sz);
+                data = repelem(bits_o_interest, int32(this.params.simstep_sz));
             end
-            delay_samples = ceil(delay * this.params.Fs);
             data_start = this.params.simstep_sz + 1 - delay_samples;
             data_stop = data_start + this.params.simstep_sz - 1;
             data = data(data_start:data_stop);
@@ -177,7 +177,7 @@ classdef Tag < handle
                     "curr_symb", curr_symb, ...
                     "prev_steps_symb", prev_steps_symb, ...
                     "data", data ...
-                );
+                );              
 
             this.curr_step = this.curr_step + 1;
         end

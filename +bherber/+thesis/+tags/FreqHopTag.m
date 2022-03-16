@@ -49,36 +49,41 @@ classdef FreqHopTag < bherber.thesis.tags.Tag
             %STEP one simulation step using FSK modulation.
     
             if ~this.is_active
-                    res = zeros(1, this.params.simstep_sz);
-                    return
+                res = zeros(1, this.params.simstep_sz);
+                return
             end
     
             details = this.step_data();
+            delay_samples = details.delay_samples;
+            pattern_len = length(this.hop_pattern);
 
-            pattern_idx = mod(details.curr_symb, this.params.pattern_len);
-            if pattern_idx == 0; pattern_idx = this.params.pattern_len; end
+            pattern_idx = mod(details.curr_symb, pattern_len);
+            if pattern_idx == 0; pattern_idx = pattern_len; end
             f0 = this.params.freq_channels(this.hop_pattern(pattern_idx)).f0;
             f1 = this.params.freq_channels(this.hop_pattern(pattern_idx)).f1;
+
             sq_one = zeros(1, this.params.simstep_sz);
             sq_zero = zeros(1, this.params.simstep_sz);
+
             stop = length(details.time_slice);
             sq_one((delay_samples + 1):stop) = square(2 * pi * f1 * details.time_slice((delay_samples + 1):stop));
             sq_zero((delay_samples + 1):stop) = square(2 * pi * f0 * details.time_slice((delay_samples + 1):stop));
-            if this.curr_step > 1
-                prev_pattern_idx = mod(prev_steps_symb, this.params.pattern_len);
-                if prev_pattern_idx == 0; prev_pattern_idx = this.params.pattern_len; end
+            
+            if (this.curr_step > 1) && (delay_samples > 0)
+                prev_pattern_idx = mod(details.prev_steps_symb, pattern_len);
+                if prev_pattern_idx == 0; prev_pattern_idx = pattern_len; end
                 prev_f0 = this.params.freq_channels(this.hop_pattern(prev_pattern_idx)).f0;
                 prev_f1 = this.params.freq_channels(this.hop_pattern(prev_pattern_idx)).f1;
                 sq_one(1:delay_samples) = square(2 * pi * prev_f1 * details.time_slice(1:delay_samples));
                 sq_zero(1:delay_samples) = square(2 * pi * prev_f0 * details.time_slice(1:delay_samples));
             end
             
-            all_ones = sq_one .* details.carrier_slice * ...
+            all_ones = sq_one .* details.carrier_slice .* ...
                 this.vanatta_gain(this.params.num_elements, ...
-                this.params.Fc, this.params.Fc + this.f1);
-            all_zeros = sq_zero .* details.carrier_slice * ...
+                this.params.Fc, this.params.Fc + f1);
+            all_zeros = sq_zero .* details.carrier_slice .* ...
                 this.vanatta_gain(this.params.num_elements, ...
-                this.params.Fc, this.params.Fc + this.f0);
+                this.params.Fc, this.params.Fc + f0);
 
             res = zeros(size(details.data));
             for idx = 1:length(res)
@@ -102,21 +107,19 @@ classdef FreqHopTag < bherber.thesis.tags.Tag
             end
 
             time_slice = (0:(1 / this.params.Fs):(double(this.params.symb_sz) * (1 / this.params.Fs) - (1 / this.params.Fs))) ...
-                + (symb_num * double(this.params.symb_sz) * (1 / this.params.Fs));
+                + ((symb_num - 1) * double(this.params.symb_sz) * (1 / this.params.Fs));
 
             carrier_slice = this.params.amplitude * cos(2 * pi * this.params.Fc * time_slice);
 
-            subband = this.freq_subbands(this.hop_pattern(symb_num));
+            subband_idx = mod(symb_num, length(this.hop_pattern));
+            if subband_idx == 0; subband_idx = length(this.hop_pattern); end
+            subband = this.freq_subbands(this.hop_pattern(subband_idx));
 
             sq_one = square(2 * pi * subband.f1 * time_slice);
             sq_zero = square(2 * pi * subband.f0 * time_slice);
             
-            all_ones = sq_one .* carrier_slice * ...
-                this.vanatta_gain(this.params.num_elements, ...
-                this.params.Fc, this.params.Fc + subband.f1);
-            all_zeros = sq_zero .* carrier_slice * ...
-                this.vanatta_gain(this.params.num_elements, ...
-                this.params.Fc, this.params.Fc + subband.f0);
+            all_ones = sq_one .* carrier_slice;
+            all_zeros = sq_zero .* carrier_slice;
 
             % 1. Freq mix
             mixed_one = signal .* all_ones;
@@ -127,15 +130,15 @@ classdef FreqHopTag < bherber.thesis.tags.Tag
             filtered_zero = lowpass(mixed_zero, 2 * subband.f0, this.params.Fs);
 
             % 3. Mean
-            correlated_one = mean(filtered_one);
-            correlated_zero = mean(filtered_zero);
+            correlated_one = trapz(filtered_one);
+            correlated_zero = trapz(filtered_zero);
 
             % 4. Combine Streams
-            combined_streams = correlated_one - correlated_zero;
+            combined_streams = abs(correlated_one) - abs(correlated_zero);
 
             % 5. Decide
             lambda = 0;
-            if real(combined_streams) > lambda
+            if combined_streams > lambda
                 res_bits = 1;
             else
                 res_bits = 0;

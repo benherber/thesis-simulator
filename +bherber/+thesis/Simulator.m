@@ -24,7 +24,7 @@ classdef Simulator < handle
     end
 
     methods
-        function this = Simulator(tags, tag_modes, channel, sim_params, snr_db, complex_noise)
+        function this = Simulator(tags, tag_modes, channel, sim_params, options)
             %SIMULATOR constructor
             %   Initialize and start simulator.
 
@@ -33,8 +33,9 @@ classdef Simulator < handle
                 tag_modes
                 channel
                 sim_params
-                snr_db = NaN;
-                complex_noise = false;
+                options.bitstream = [];
+                options.snr_db = NaN;
+                options.complex_noise = false;
             end
 
             this.params = sim_params;
@@ -60,36 +61,38 @@ classdef Simulator < handle
             end
 
             % Set up Hop-Patterns
-%             seen_patterns = [];
-%             for idx = 1:tag_sz
-%                 seen_patterns = this.unique_pattern(idx, seen_patterns);
-%             end
+            hopsets = bherber.thesis.HopsetsGenerator.generate(tag_sz, this.params.num_channels, 1);
 
             % Init Data
             this.bits = zeros(tag_sz, this.params.num_symbs);
             tags_objs = [];
             for idx = 1:tag_sz
                 % Get random data signal
-                bits = randi([0, 1], 1, this.params.num_symbs);
-                this.bits(idx, :) = bits;
+                if isempty(options.bitstream)
+                    this.bits(idx, :) = randi([0, 1], 1, this.params.num_symbs);
+                else
+                    this.bits(idx, :) = options.bitstream;
+                end
 
                 switch tag_modes(idx)
                     case bherber.thesis.TagType.OOK
                         curr_tag = bherber.thesis.tags.OOKTag(...
                             tags(1, idx), tags(2, idx), tags(3, idx), tag_modes(idx), ...
-                            bits, this.params, snr_db=snr_db, complex_noise=complex_noise);
+                            this.bits(idx, :), this.params, snr_db=options.snr_db, complex_noise=options.complex_noise);
                     case bherber.thesis.TagType.FSK_LO
                         curr_tag = bherber.thesis.tags.FSKTag(...
                             tags(1, idx), tags(2, idx), tags(3, idx), tag_modes(idx), ...
-                            bits, this.params, this.params.freq_channels(1));
+                            this.bits(idx, :), this.params, this.params.freq_channels(1), ...
+                            snr_db=options.snr_db, complex_noise=options.complex_noise);
                     case bherber.thesis.TagType.FSK_HI
                         curr_tag = bherber.thesis.tags.FSKTag(...
                             tags(1, idx), tags(2, idx), tags(3, idx), tag_modes(idx), ...
-                            bits, this.params, this.params.freq_channels(2));
+                            this.bits(idx, :), this.params, this.params.freq_channels(2), ...
+                            snr_db=options.snr_db, complex_noise=options.complex_noise);
                     case bherber.thesis.TagType.FREQ_HOP
                         curr_tag = bherber.thesis.tags.FreqHopTag(...
                             tags(1, idx), tags(2, idx), tags(3, idx), tag_modes(idx), ...
-                            bits, this.params, this.params.freq_channels, seen_patterns(idx));
+                            this.bits(idx, :), this.params, this.params.freq_channels, hopsets(idx, :));
                 end
 
                 if isempty(tags_objs)
@@ -111,18 +114,6 @@ classdef Simulator < handle
             
         end
 
-            function res = unique_pattern(this, idx, seen_patterns)
-                    pattern = this.tags(idx).generate_hoppattern();
-                    for jdx = 1:length(seen_patterns)
-                        if isequal(seen_patterns(idx, :), pattern)
-                            seen_patterns = this.unique_pattern(seen_patterns);
-                        else
-                            seen_patterns = [seen_patterns; pattern];
-                        end
-                    end
-                res = seen_patterns;
-            end
-
         function res = step(this)
             %STEP through one frame of the simulation
             %   Step one 1us frame in time through the simulation for the
@@ -133,7 +124,7 @@ classdef Simulator < handle
                 error("ATTEMPTED TO SIMULATE TOO MANY STEPS");
             end
 
-            res = zeros(1, this.params.simstep_sz);
+            res = zeros(1, int64(this.params.simstep_sz));
 
             for idx = 1:length(this.tags)
                 res = res + this.tags(idx).step();

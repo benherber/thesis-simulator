@@ -12,7 +12,7 @@ classdef SimulationConstants < handle
         pattern_len {mustBePositive} % Length of Freq Hop Pattern
         num_channels {mustBePositive} % Number of frequency channels available
         Fs {mustBePositive} % Sampling frequency
-        num_symbs {mustBePositive, mustBeGreaterThanOrEqual(num_symbs, 8)} % Total number of symbols in simulation
+        num_symbs {mustBePositive} % Total number of symbols in simulation
         symb_freq {mustBePositive} % Frequency of symbols
         symb_sz {mustBePositive} % Samples per symbol
         sim_sym_ratio {mustBePositive} % Simulation steps per symbol window
@@ -59,6 +59,7 @@ classdef SimulationConstants < handle
             end
 
             this.Fc = Fc;
+%             this.freq_channels = [struct("f0", 4e6, "f1", 8e6)];
             this.freq_channels = [];
             for idx = 1:num_channels
                 f0 = Fb_base + ((idx - 1) * (Fb_step + Fb_channel_spacing));

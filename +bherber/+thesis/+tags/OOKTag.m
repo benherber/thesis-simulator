@@ -74,6 +74,9 @@ classdef OOKTag < bherber.thesis.tags.Tag
             time_slice = (0:(1 / this.params.Fs):(double(this.params.symb_sz) * (1 / this.params.Fs) - (1 / this.params.Fs))) ...
                 + ((symb_num - 1) * double(this.params.symb_sz) * (1 / this.params.Fs));
 
+%             global demod_time
+%             demod_time = [demod_time, time_slice];
+
             carrier_slice = this.params.amplitude * cos(2 * pi * this.params.Fc * time_slice);
 
             % 1. Freq mix
@@ -83,25 +86,39 @@ classdef OOKTag < bherber.thesis.tags.Tag
             filtered = lowpass(mixed_ook, this.params.symb_freq * 2, this.params.Fs);
 
             % 3. Mean Value
-            correlated_ook = mean(filtered);
+%             correlated_ook = mean(filtered);
+%             correlated_ook = rms(filtered) .^ 2;
+%             correlated_ook = sum(abs(filtered) .^ 2) / numel(filtered);
+            correlated_ook = trapz(time_slice, filtered);
+            gca;
+            hold on
+            ramp = [];
+            for idx = 1:100:(length(time_slice) - 1)
+                ramp = [ramp, (1 / this.params.Fs) * trapz(filtered(1:idx))];
+            end
+            if isnan(this.snr_db)
+                plot(gca, ramp, "-b");
+            else
+                plot(gca, ramp, "-r");
+            end
             
             % 4. Decide
             expected_amplitude = this.params.amplitude * ...
                 ((bherber.thesis.PathLoss.amplitude_factor(this.distance, this.params) .^ 2)) * ...
                  this.vanatta_gain(this.params.num_elements, this.params.Fc, this.params.Fc);
-            lambda = (expected_amplitude * this.params.amplitude) / 4;
-            if real(correlated_ook) > lambda
+            filtered_amp = (expected_amplitude * this.params.amplitude) / 2;
+%             lambda = (filtered_amp .^ 2) / 4;
+            lambda = ((1 / this.params.Fs) * ((numel(filtered) - 1) * filtered_amp)) / 2;
+            if correlated_ook > lambda
                 res_bits = 1;
             else
                 res_bits = 0;
             end
 
-            global ook_mixed;
-            global ook_filtered;
-            global ook_correlated;
-            ook_mixed = [ook_mixed, mixed_ook];
-            ook_filtered = [ook_filtered, filtered];
-            ook_correlated = [ook_correlated, repelem(correlated_ook, this.params.symb_sz)];
+%             global ook_mixed; global ook_filtered; global ook_correlated;
+%             ook_mixed = [ook_mixed, mixed_ook];
+%             ook_filtered = [ook_filtered, filtered];
+%             ook_correlated = [ook_correlated, repelem(correlated_ook, this.params.symb_sz)];
         end
     end
 end
