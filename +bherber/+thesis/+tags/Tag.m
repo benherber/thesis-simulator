@@ -165,8 +165,8 @@ classdef Tag < handle
                 bits_o_interest = [this.bits(prev_steps_symb), this.bits(curr_symb)];
                 data = repelem(bits_o_interest, int32(this.params.simstep_sz));
             end
-            data_start = this.params.simstep_sz + 1 - delay_samples;
-            data_stop = data_start + this.params.simstep_sz - 1;
+            data_start = int32(this.params.simstep_sz + 1 - delay_samples);
+            data_stop = int32(data_start + this.params.simstep_sz - 1);
             data = data(data_start:data_stop);
 
 
@@ -187,7 +187,8 @@ classdef Tag < handle
 
     methods (Abstract)
         step(this)
-        demodulate(this, signal)
+        constellation_point(this, symb_num, signal)
+        demodulate(this, symb_num, signal)
     end
 
 end

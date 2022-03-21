@@ -86,18 +86,15 @@ classdef FSKTag < bherber.thesis.tags.Tag
 
             res = res * pathloss;
         end
-    
+
 % ----------------------------------------------------------------------- %
     
-    function res_bits = demodulate(this, symb_num, signal)
+        function point = constellation_point(this, symb_num, signal)
             arguments
                 this bherber.thesis.tags.FSKTag
                 symb_num double {mustBePositive}
                 signal (1, :)
             end
-
-%             pathloss = bherber.thesis.PathLoss.amplitude_factor(this.distance, this.params);
-%             gain = this.vanatta_gain(this.params.num_elements, this.params.Fc, this.params.Fc);
 
             time_slice = (0:(1 / this.params.Fs):(double(this.params.symb_sz) * (1 / this.params.Fs) - (1 / this.params.Fs))) ...
                 + ((symb_num - 1) * double(this.params.symb_sz) * (1 / this.params.Fs));
@@ -124,19 +121,32 @@ classdef FSKTag < bherber.thesis.tags.Tag
 
             % 4. Combine Streams
             combined_streams = abs(correlated_one) - abs(correlated_zero);
+            point = combined_streams;
+        end
+    
+% ----------------------------------------------------------------------- %
+    
+    function res_bits = demodulate(this, symb_num, signal)
+            arguments
+                this bherber.thesis.tags.FSKTag
+                symb_num double {mustBePositive}
+                signal (1, :)
+            end
 
-            gca;
-            hold on
-            ramp = [];
-            for idx = 1:100:(length(time_slice) - 1)
-                ramp = [ramp, (1 / this.params.Fs) * ...
-                    (abs(trapz(filtered_one(1:idx))) - abs(trapz(filtered_zero(1:idx))))];
-            end
-            if isnan(this.snr_db)
-                plot(gca, ramp, "-b");
-            else
-                plot(gca, ramp, "-r");
-            end
+            combined_streams = this.constellation_point(symb_num, signal);
+
+%             gca;
+%             hold on
+%             ramp = [];
+%             for idx = 1:100:(length(time_slice) - 1)
+%                 ramp = [ramp, (1 / this.params.Fs) * ...
+%                     (abs(trapz(filtered_one(1:idx))) - abs(trapz(filtered_zero(1:idx))))];
+%             end
+%             if isnan(this.snr_db)
+%                 plot(gca, ramp, "-b");
+%             else
+%                 plot(gca, ramp, "-r");
+%             end
 
             % 5. Decide
             lambda = 0;

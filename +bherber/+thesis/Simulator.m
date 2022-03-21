@@ -41,7 +41,7 @@ classdef Simulator < handle
             this.params = sim_params;
 
             % Get time
-            this.time = (0:(1 / this.params.Fs):(this.params.total_time - (1 / this.params.Fs)));
+            this.time = []; %(0:(1 / this.params.Fs):(this.params.total_time - (1 / this.params.Fs)));
 
             % Init tags
             tag_sz = size(tags, 2);
@@ -50,7 +50,7 @@ classdef Simulator < handle
             this.channel = channel;
 
             % Carrier signal
-            this.carrier = this.params.amplitude * cos(2 * pi * this.params.Fc * this.time);
+            this.carrier = []; %this.params.amplitude * cos(2 * pi * this.params.Fc * this.time);
 %             noisy_carrier = channel(this.carrier);
 
             % Init Tag ID's

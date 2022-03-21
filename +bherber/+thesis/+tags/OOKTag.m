@@ -61,10 +61,10 @@ classdef OOKTag < bherber.thesis.tags.Tag
 
             res = res * pathloss;
         end
-    
+
 % ----------------------------------------------------------------------- %
     
-    function res_bits = demodulate(this, symb_num, signal)
+        function point = constellation_point(this, symb_num, signal)
             arguments
                 this bherber.thesis.tags.OOKTag
                 symb_num double {mustBePositive}
@@ -90,25 +90,38 @@ classdef OOKTag < bherber.thesis.tags.Tag
 %             correlated_ook = rms(filtered) .^ 2;
 %             correlated_ook = sum(abs(filtered) .^ 2) / numel(filtered);
             correlated_ook = trapz(time_slice, filtered);
-            gca;
-            hold on
-            ramp = [];
-            for idx = 1:100:(length(time_slice) - 1)
-                ramp = [ramp, (1 / this.params.Fs) * trapz(filtered(1:idx))];
+            point = correlated_ook;
+
+%             gca;
+%             hold on
+%             ramp = [];
+%             for idx = 1:100:(length(time_slice) - 1)
+%                 ramp = [ramp, (1 / this.params.Fs) * trapz(filtered(1:idx))];
+%             end
+%             if isnan(this.snr_db)
+%                 plot(gca, ramp, "-b");
+%             else
+%                 plot(gca, ramp, "-r");
+%             end
+        end
+    
+% ----------------------------------------------------------------------- %
+    
+        function res_bits = demodulate(this, symb_num, signal)
+            arguments
+                this bherber.thesis.tags.OOKTag
+                symb_num double {mustBePositive}
+                signal (1, :)
             end
-            if isnan(this.snr_db)
-                plot(gca, ramp, "-b");
-            else
-                plot(gca, ramp, "-r");
-            end
+
+            correlated_ook = this.constellation_point(symb_num, signal);
             
             % 4. Decide
             expected_amplitude = this.params.amplitude * ...
                 ((bherber.thesis.PathLoss.amplitude_factor(this.distance, this.params) .^ 2)) * ...
                  this.vanatta_gain(this.params.num_elements, this.params.Fc, this.params.Fc);
             filtered_amp = (expected_amplitude * this.params.amplitude) / 2;
-%             lambda = (filtered_amp .^ 2) / 4;
-            lambda = ((1 / this.params.Fs) * ((numel(filtered) - 1) * filtered_amp)) / 2;
+            lambda = ((1 / this.params.Fs) * ((numel(correlated_ook) - 1) * filtered_amp)) / 2;
             if correlated_ook > lambda
                 res_bits = 1;
             else
