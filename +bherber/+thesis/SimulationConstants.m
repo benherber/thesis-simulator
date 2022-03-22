@@ -22,6 +22,8 @@ classdef SimulationConstants < handle
         total_samples {mustBePositive} % Total simulation samples
         amplitude {mustBePositive} % Amplitude of Carrier
         num_elements {mustBePositive} % Number of elements in Van Atta Array
+        m_ary_modulation {mustBePositive, mustBeGreaterThanOrEqual(m_ary_modulation, 2)} % M-Ary Mod. Scheme
+        m_ary_amplitudes % Amplitudes for M-Ary ASK
     end
 
     methods
@@ -38,7 +40,8 @@ classdef SimulationConstants < handle
                 sim_sym_ratio, ...
                 amplitude, ...
                 num_elements, ...
-                pattern_len ...
+                pattern_len, ...
+                m_ary_scheme ...
             )
             %SIMULATION_CONSTANTS Construct an instance of constants
             %   Define constants for the simulation
@@ -56,15 +59,20 @@ classdef SimulationConstants < handle
                 amplitude
                 num_elements
                 pattern_len = 0
+                m_ary_scheme = 2
             end
 
             this.Fc = Fc;
 %             this.freq_channels = [struct("f0", 4e6, "f1", 8e6)];
-            this.freq_channels = [];
+            this.freq_channels = zeros(num_channels, m_ary_scheme);
+            freq_spacing = 1 / (2 * (1 / symb_freq));
+            bands = 0:freq_spacing:((m_ary_scheme - 1) * freq_spacing);
             for idx = 1:num_channels
-                f0 = Fb_base + ((idx - 1) * (Fb_step + Fb_channel_spacing));
-                f1 = Fb_base + (idx * Fb_step) + ((idx - 1) * Fb_channel_spacing);
-                this.freq_channels = [this.freq_channels, struct("f0", f0, "f1", f1)];
+                this.freq_channels(idx, :) = Fb_base + bands + ...
+                    ((idx - 1) * (Fb_channel_spacing + bands(end)));
+%                 f0 = Fb_base + ((idx - 1) * (Fb_step + Fb_channel_spacing));
+%                 f1 = Fb_base + (idx * Fb_step) + ((idx - 1) * Fb_channel_spacing);
+%                 this.freq_channels = [this.freq_channels, struct("f0", f0, "f1", f1)];
             end
             this.interchannel_spacing = Fb_channel_spacing;
             this.num_channels = num_channels;
@@ -82,7 +90,8 @@ classdef SimulationConstants < handle
             this.total_samples = this.symb_sz * num_symbs;
             this.amplitude = amplitude;
             this.num_elements = num_elements;
-
+            this.m_ary_modulation = m_ary_scheme;
+            this.m_ary_amplitudes = linspace(0, amplitude, m_ary_scheme);
         end
 
     end

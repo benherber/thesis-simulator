@@ -48,7 +48,8 @@ classdef OOKTag < bherber.thesis.tags.Tag
             details = this.step_data();
             pathloss = bherber.thesis.PathLoss.amplitude_factor(this.distance, this.params);
             gain = this.vanatta_gain(this.params.num_elements, this.params.Fc, this.params.Fc);
-            res = details.carrier_slice .* pathloss .* details.data .* gain;
+            res = details.carrier_slice .* pathloss .* ...
+                (this.params.m_ary_amplitudes(details.data) / this.params.amplitude) .* gain;
 
             if ~isnan(this.snr_db)
                 linear_snr = 10 ^ (this.snr_db / 10);
@@ -89,7 +90,7 @@ classdef OOKTag < bherber.thesis.tags.Tag
 %             correlated_ook = mean(filtered);
 %             correlated_ook = rms(filtered) .^ 2;
 %             correlated_ook = sum(abs(filtered) .^ 2) / numel(filtered);
-            correlated_ook = trapz(time_slice, filtered);
+            correlated_ook = trapz(filtered);
             point = correlated_ook;
 
 %             gca;
@@ -117,16 +118,14 @@ classdef OOKTag < bherber.thesis.tags.Tag
             correlated_ook = this.constellation_point(symb_num, signal);
             
             % 4. Decide
-            expected_amplitude = this.params.amplitude * ...
-                ((bherber.thesis.PathLoss.amplitude_factor(this.distance, this.params) .^ 2)) * ...
+            expected_amplitudes = this.params.m_ary_amplitudes .* ...
+                ((bherber.thesis.PathLoss.amplitude_factor(this.distance, this.params) .^ 2)) .* ...
                  this.vanatta_gain(this.params.num_elements, this.params.Fc, this.params.Fc);
-            filtered_amp = (expected_amplitude * this.params.amplitude) / 2;
-            lambda = ((1 / this.params.Fs) * ((numel(correlated_ook) - 1) * filtered_amp)) / 2;
-            if correlated_ook > lambda
-                res_bits = 1;
-            else
-                res_bits = 0;
-            end
+            filtered_amp = (expected_amplitudes .* this.params.amplitude) / 2;
+            lambda = double(this.params.symb_sz - 1) .* filtered_amp;
+            [~, idx] = min(abs(correlated_ook - lambda));
+            strbits = dec2bin(this.gray2dec(idx - 1), log2(this.params.m_ary_modulation));
+            res_bits = this.str2bin(strbits);
 
 %             global ook_mixed; global ook_filtered; global ook_correlated;
 %             ook_mixed = [ook_mixed, mixed_ook];

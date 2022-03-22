@@ -23,6 +23,7 @@ classdef Tag < handle
         params bherber.thesis.SimulationConstants % Simulation parameters
         snr_db double % SNR of noise if applicable;
         complex_noise logical % Apply complex noise
+        symbol_nums double % Symbol point indecies.
     end
 
     %%  Dependent Properties
@@ -32,6 +33,7 @@ classdef Tag < handle
     end
 
     %%  Static Methods
+
     methods (Static)
         function res = vanatta_gain(num_elements, fc, fb)
             %VANATTA_GAIN of a backscatter tag in a Van Atta Configuration.
@@ -53,24 +55,6 @@ classdef Tag < handle
             end
 
             res = tmp;
-        end
-
-        % ----------------------------------------------------------------------- %
-
-        function res = friis_path_loss(signal, distance, params)
-            %FRIIS_PATH_LOSS of signal through free space
-            %   Using Friis Formula for path loss through free space, calculate
-            %   the remaining wave.
-
-            if distance == 0
-                res = signal;
-            else
-                % Calculate power loss
-                amplitude_loss = params.wavelen / (4 * pi * distance);
-
-                % Calculate the resultant wave
-                res = signal * amplitude_loss;
-            end
         end
 
     end
@@ -104,6 +88,10 @@ classdef Tag < handle
             this.bits = [bits, 0];
             this.snr_db = options.snr_db;
             this.complex_noise = options.complex_noise;
+            
+            symbol_bits = reshape(bits, log2(this.params.m_ary_modulation), []);
+            symbol_strings = join(string(symbol_bits), "", 1);
+            this.symbol_nums = [(this.dec2gray(bin2dec(symbol_strings)) + 1), 1];
 
         end
 
@@ -149,20 +137,20 @@ classdef Tag < handle
 
             carrier_slice = this.params.amplitude * cos(2 * pi * this.params.Fc * time_slice);
             carrier_slice(invalid_times) = 0;
-%             if ~isnan(this.snr_db)
-%                 linear_snr = 10 ^ (this.snr_db / 10);
-%                 linear_carrier_power = (this.params.amplitude ^ 2) / 2;
-%                 carrier_noise = bherber.thesis.channel_models.AWGNChannelModel.noise(...
-%                     length(time_slice), linear_carrier_power, linear_snr, this.complex_noise);
-%                 carrier_slice = carrier_slice + carrier_noise;
-%             end
+            if ~isnan(this.snr_db)
+                linear_snr = 10 ^ (this.snr_db / 10);
+                linear_carrier_power = (this.params.amplitude ^ 2) / 2;
+                carrier_noise = bherber.thesis.channel_models.AWGNChannelModel.noise(...
+                    length(time_slice), linear_carrier_power, linear_snr, this.complex_noise);
+                carrier_slice = carrier_slice + carrier_noise;
+            end
 
             curr_symb = ceil((double(this.curr_step) + 1) / this.params.sim_sym_ratio);
             prev_steps_symb = ceil(double(this.curr_step) / this.params.sim_sym_ratio);
             if this.curr_step == 0
-                data = repelem([0, this.bits(1)], int32(this.params.simstep_sz));
+                data = repelem([1, this.symbol_nums(1)], int32(this.params.simstep_sz));
             else
-                bits_o_interest = [this.bits(prev_steps_symb), this.bits(curr_symb)];
+                bits_o_interest = [this.symbol_nums(prev_steps_symb), this.symbol_nums(curr_symb)];
                 data = repelem(bits_o_interest, int32(this.params.simstep_sz));
             end
             data_start = int32(this.params.simstep_sz + 1 - delay_samples);
@@ -180,6 +168,83 @@ classdef Tag < handle
                 );              
 
             this.curr_step = this.curr_step + 1;
+        end
+    end
+
+% ----------------------------------------------------------------------- %
+
+    methods (Static)
+
+        function gray_dec = dec2gray(num)
+                %DEC2GRAY conversion.
+                %   Convert a decimal number to a gray encoding. 
+                %   Return decimal representation.
+    
+                gray_dec = zeros(1, length(num));
+                for jdx = 1:length(num)
+                    % Convert to binary
+                    bits = dec2bin(num(jdx));
+        
+                    % Convert to Gray
+                    gray = zeros(size(bits));
+                    gray(1) = str2double(bits(1));
+                    if length(bits) > 1
+                        for idx = (2:numel(bits))
+                            gray(idx) = xor(logical(str2double(bits(idx - 1))), ...
+                                logical(str2double(bits(idx))));
+                        end
+                    end
+    
+                    gray_dec(jdx) = bin2dec(join(string(double(gray)), ""));
+                end
+        end
+
+% ----------------------------------------------------------------------- %
+
+        function dec = gray2dec(gray_dec)
+            %GRAY2DEC conversion.
+            %   Convert a gray encoded decimal number to base 10 decimal.
+
+            arguments
+                gray_dec (1, :) double {mustBeFinite}
+            end
+
+            gray = dec2bin(gray_dec);
+            dec = zeros(1, length(gray_dec));
+
+            % Convert to Gray
+            for jdx = 1:length(gray_dec)
+                bits = zeros(1, length(gray(jdx, :)));
+                bits(1) = str2double(gray(jdx, 1));
+                for idx = (2:length(gray(jdx, :)))
+                    bits(idx) = xor(bits(idx - 1), str2double(gray(jdx, idx)));
+                end
+    
+                % Convert to Decimal
+                dec(jdx) = bin2dec(num2str(bits));
+            end
+        end
+
+% ----------------------------------------------------------------------- %
+
+        function bin = str2bin(str)
+                %STR2BIN conversion.
+                %   Convert a string to binary number in vector form.
+    
+            len = strlength(str);
+            bin = zeros(1, len);
+            for idx = 1:len
+                bin(idx) = str2double(str(idx));
+            end
+        end
+
+% ----------------------------------------------------------------------- %
+
+function str = bin2str(bin)
+                %BIN2STR conversion.
+                %   Convert a binary number in vector form to a string.
+    
+            str = join(string(bin), "");
         end
     end
 

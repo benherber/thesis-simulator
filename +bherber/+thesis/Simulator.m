@@ -64,12 +64,12 @@ classdef Simulator < handle
             hopsets = bherber.thesis.HopsetsGenerator.generate(tag_sz, this.params.num_channels, 1);
 
             % Init Data
-            this.bits = zeros(tag_sz, this.params.num_symbs);
+            this.bits = zeros(tag_sz, (this.params.num_symbs) * log2(this.params.m_ary_modulation));
             tags_objs = [];
             for idx = 1:tag_sz
                 % Get random data signal
                 if isempty(options.bitstream)
-                    this.bits(idx, :) = randi([0, 1], 1, this.params.num_symbs);
+                    this.bits(idx, :) = randi([0, 1], 1, (this.params.num_symbs) * log2(this.params.m_ary_modulation));
                 else
                     this.bits(idx, :) = options.bitstream;
                 end
