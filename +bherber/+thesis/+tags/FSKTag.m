@@ -13,8 +13,7 @@ classdef FSKTag < bherber.thesis.tags.Tag
     %% Properties
 
     properties (GetAccess = public, SetAccess = private)
-        f1 double {mustBePositive}
-        f0 double {mustBePositive}
+        freqs (:, 1) {mustBePositive}
     end
 
     %% Public Instance Methods
@@ -33,15 +32,14 @@ classdef FSKTag < bherber.thesis.tags.Tag
                 mode bherber.thesis.TagType % Modulation mode
                 bits (1, :) {mustBeNonmissing, mustBeInRange(bits, 0, 1)} % bitstream
                 sim_params bherber.thesis.SimulationConstants % Simulation parameters
-                frequency_subband struct
+                frequency_subband (1, :)
                 options.snr_db = NaN;
                 options.complex_noise = false;
             end
 
             this@bherber.thesis.tags.Tag(x, y, z, mode, bits, sim_params, ...
                 snr_db=options.snr_db, complex_noise=options.complex_noise);
-            this.f1 = frequency_subband.f1;
-            this.f0 = frequency_subband.f0;
+            this.freqs = frequency_subband;
 
         end
 
@@ -59,20 +57,13 @@ classdef FSKTag < bherber.thesis.tags.Tag
 
             pathloss = bherber.thesis.PathLoss.amplitude_factor(this.distance, this.params);
             gain = this.vanatta_gain(this.params.num_elements, this.params.Fc, this.params.Fc);
-
-            sq_one = square(2 * pi * this.f1 * details.time_slice);
-            sq_zero = square(2 * pi * this.f0 * details.time_slice);
+            square_wvs = square(2 .* pi .* this.freqs .* details.time_slice);
             
-            all_ones = (sq_one .* details.carrier_slice) .* gain;
-            all_zeros = (sq_zero .* details.carrier_slice) .* gain;
+            all_symbol_values = square_wvs .* details.carrier_slice .* gain;
 
             res = zeros(size(details.data));
             for idx = 1:length(res)
-                if details.data(idx) == 1
-                    res(idx) = all_ones(idx);
-                else
-                    res(idx) = all_zeros(idx);
-                end
+                res(idx) = all_symbol_values(details.data(idx), idx);
             end
 
             if ~isnan(this.snr_db)
@@ -100,28 +91,17 @@ classdef FSKTag < bherber.thesis.tags.Tag
                 + ((symb_num - 1) * double(this.params.symb_sz) * (1 / this.params.Fs));
 
             carrier_slice = this.params.amplitude * cos(2 * pi * this.params.Fc * time_slice);
-
-            sq_one = square(2 * pi * this.f1 * time_slice);
-            sq_zero = square(2 * pi * this.f0 * time_slice);
             
-            all_ones = sq_one .* carrier_slice;
-            all_zeros = sq_zero .* carrier_slice;
+            square_wvs = square(2 .* pi .* this.freqs .* time_slice);
+            all_symbol_values = square_wvs .* carrier_slice;
 
             % 1. Freq mix
-            mixed_one = signal .* all_ones;
-            mixed_zero = signal .* all_zeros;
+            mixed = signal .* all_symbol_values;
 
-            % 2. Filter
-            filtered_one = lowpass(mixed_one, 2 * this.f1, this.params.Fs);
-            filtered_zero = lowpass(mixed_zero, 2 * this.f0, this.params.Fs);
+            % 2. Correlate
+            correlated = trapz(mixed, 2);
+            point = correlated;
 
-            % 3. Mean
-            correlated_one = trapz(filtered_one);
-            correlated_zero = trapz(filtered_zero);
-
-            % 4. Combine Streams
-            combined_streams = abs(correlated_one) - abs(correlated_zero);
-            point = combined_streams;
         end
     
 % ----------------------------------------------------------------------- %
@@ -133,7 +113,7 @@ classdef FSKTag < bherber.thesis.tags.Tag
                 signal (1, :)
             end
 
-            combined_streams = this.constellation_point(symb_num, signal);
+            correlated = this.constellation_point(symb_num, signal);
 
 %             gca;
 %             hold on
@@ -149,12 +129,9 @@ classdef FSKTag < bherber.thesis.tags.Tag
 %             end
 
             % 5. Decide
-            lambda = 0;
-            if combined_streams > lambda
-                res_bits = 1;
-            else
-                res_bits = 0;
-            end
+            [~, idx] = max(correlated);
+            strbits = dec2bin(this.gray2dec(idx - 1), log2(this.params.m_ary_modulation));
+            res_bits = this.str2bin(strbits);
         end
     end
 end

@@ -84,13 +84,14 @@ classdef OOKTag < bherber.thesis.tags.Tag
             mixed_ook = (signal .* carrier_slice);
 
             % 2. Filter
-            filtered = lowpass(mixed_ook, this.params.symb_freq * 2, this.params.Fs);
+%             filtered = lowpass(mixed_ook, this.params.symb_freq * 2, this.params.Fs);
 
             % 3. Mean Value
 %             correlated_ook = mean(filtered);
 %             correlated_ook = rms(filtered) .^ 2;
 %             correlated_ook = sum(abs(filtered) .^ 2) / numel(filtered);
-            correlated_ook = trapz(filtered);
+%             correlated_ook = trapz(filtered);
+            correlated_ook = trapz(mixed_ook);
             point = correlated_ook;
 
 %             gca;
@@ -116,13 +117,19 @@ classdef OOKTag < bherber.thesis.tags.Tag
             end
 
             correlated_ook = this.constellation_point(symb_num, signal);
-            
+            time_slice = (0:(1 / this.params.Fs):(double(this.params.symb_sz) * (1 / this.params.Fs) - (1 / this.params.Fs))) ...
+                + ((symb_num - 1) * double(this.params.symb_sz) * (1 / this.params.Fs));
+            carrier_slice = cos(2 * pi * this.params.Fc * time_slice);
+            mixed_energy = trapz(carrier_slice .^ 2);
+
             % 4. Decide
             expected_amplitudes = this.params.m_ary_amplitudes .* ...
                 ((bherber.thesis.PathLoss.amplitude_factor(this.distance, this.params) .^ 2)) .* ...
                  this.vanatta_gain(this.params.num_elements, this.params.Fc, this.params.Fc);
-            filtered_amp = (expected_amplitudes .* this.params.amplitude) / 2;
-            lambda = double(this.params.symb_sz - 1) .* filtered_amp;
+%             filtered_amp = (expected_amplitudes .* this.params.amplitude) / 2;
+%             lambda = double(this.params.symb_sz - 1) .* filtered_amp;
+            mixed_amps = expected_amplitudes .* this.params.amplitude;
+            lambda = mixed_energy .* mixed_amps;
             [~, idx] = min(abs(correlated_ook - lambda));
             strbits = dec2bin(this.gray2dec(idx - 1), log2(this.params.m_ary_modulation));
             res_bits = this.str2bin(strbits);
