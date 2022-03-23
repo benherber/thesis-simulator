@@ -10,7 +10,7 @@ function [params, total_symbs] = BerPlotterConstants(num_symbs, modulation_order
                 2.4e9, ...   "Fc"
                 100e3, ...   "Fb_base"
                 100e3, ...   "Fb_step"
-                100e3, ...   "Fb_channel_spacing"
+                1 / 2 * (1 / (4 * 2.4e9)), ...   "Fb_channel_spacing"
                 5, ...       "num_channels"
                 4, ...       "fs_granularity"
                 num_symbs, ... "num_symbs"

@@ -137,13 +137,13 @@ classdef Tag < handle
 
             carrier_slice = this.params.amplitude * cos(2 * pi * this.params.Fc * time_slice);
             carrier_slice(invalid_times) = 0;
-            if ~isnan(this.snr_db)
-                linear_snr = 10 ^ (this.snr_db / 10);
-                linear_carrier_power = (this.params.amplitude ^ 2) / 2;
-                carrier_noise = bherber.thesis.channel_models.AWGNChannelModel.noise(...
-                    length(time_slice), linear_carrier_power, linear_snr, this.complex_noise);
-                carrier_slice = carrier_slice + carrier_noise;
-            end
+%             if ~isnan(this.snr_db)
+%                 linear_snr = 10 ^ (this.snr_db / 10);
+%                 linear_carrier_power = (this.params.amplitude ^ 2) / 2;
+%                 carrier_noise = bherber.thesis.channel_models.AWGNChannelModel.noise(...
+%                     length(time_slice), linear_carrier_power, linear_snr, this.complex_noise);
+%                 carrier_slice = carrier_slice + carrier_noise;
+%             end
 
             curr_symb = ceil((double(this.curr_step) + 1) / this.params.sim_sym_ratio);
             prev_steps_symb = ceil(double(this.curr_step) / this.params.sim_sym_ratio);

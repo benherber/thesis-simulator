@@ -67,11 +67,17 @@ classdef FSKTag < bherber.thesis.tags.Tag
             end
 
             if ~isnan(this.snr_db)
-                linear_snr = 10 ^ (this.snr_db / 10);
+                Tsample = 1 / this.params.Fs;
+                Tsymbol = 1/ this.params.symb_freq;
+                snr_converted = bherber.thesis.channel_models.AWGNChannelModel.EbNo_to_snr(...
+                    this.snr_db, Tsample, Tsymbol, this.params.m_ary_modulation, this.complex_noise);
+                linear_snr = 10 ^ (snr_converted / 10);
                 expected_amplitude = this.params.amplitude * pathloss * gain;
                 linear_carrier_power = (expected_amplitude ^ 2) / 2; % ASSUMPTION: Uniform Random Data
                 signal_noise = bherber.thesis.channel_models.AWGNChannelModel.noise(...
-                    length(details.time_slice), linear_carrier_power, linear_snr, this.complex_noise);
+                    length(details.time_slice), linear_carrier_power, linear_snr, this.complex_noise) + ...
+                    bherber.thesis.channel_models.AWGNChannelModel.noise(...
+                        length(details.time_slice), linear_carrier_power, linear_snr, this.complex_noise);
                 res = res + signal_noise;
             end
 
