@@ -80,7 +80,7 @@ classdef FSKTag < bherber.thesis.tags.Tag
 
 % ----------------------------------------------------------------------- %
     
-        function point = constellation_point(this, symb_num, signal)
+        function points = constellation_point(this, symb_num, signal)
             arguments
                 this bherber.thesis.tags.FSKTag
                 symb_num double {mustBePositive}
@@ -100,7 +100,7 @@ classdef FSKTag < bherber.thesis.tags.Tag
 
             % 2. Correlate
             correlated = trapz(mixed, 2);
-            point = correlated;
+            points = correlated;
 
         end
     

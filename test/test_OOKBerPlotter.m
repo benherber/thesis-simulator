@@ -8,18 +8,21 @@ errors = [];
 try
     pool = gcp;
     num_threads = pool.NumWorkers;
-    [params, num_symbs] = BerPlotterConstants;
+    modulation_order = 16;
+    [params, num_symbs] = BerPlotterConstants(1, modulation_order);
     
-    symbs_per_worker = (num_symbs + mod(num_symbs, num_threads)) / num_threads;
+    symbs_per_worker = ceil(num_symbs / num_threads);
+    num_symbs = symbs_per_worker * num_threads;
+    bits_per_symb = log2(params.m_ary_modulation);
     
-    tags = [1e-12;0;0];
+    tags = [1;0;0];
     modes = [TagType.OOK];
 
     bers = NaN(1, num_threads);
 
-    for snr_db = 0:10
-        for thread = 1:num_threads
-            scaled_params = BerPlotterConstants(symbs_per_worker);
+    for snr_db = -60:10:0
+        parfor thread = 1:num_threads
+            scaled_params = BerPlotterConstants(symbs_per_worker, modulation_order);
             sim = Simulator(tags, modes, @(a) a, scaled_params, snr_db=snr_db);
             sim.auto_align()
             delay = sim.tag_delays(1);
@@ -42,25 +45,67 @@ try
                 frame = [curr_steps(:); next_steps(:)];
                 shifted_frame = delayseq(frame, -1 * delay);
                 true_symbol = shifted_frame(1:scaled_params.symb_sz);
-                demod_bit = sim.tags(1).demodulate(idx, true_symbol);
-                if demod_bit ~= sim.tags(1).bits(idx)
-                    num_errors = num_errors + 1;
-                end
+                demod_bits = sim.tags(1).demodulate(idx, true_symbol);
+                start = ((idx - 1) * bits_per_symb) + 1;
+                stop = start + bits_per_symb - 1;
+                expected = sim.tags(1).bits(start:stop).';
+                num_errors = num_errors + sum(expected ~= demod_bits);
             end
     
-            bers(thread) = num_errors / num_symbs;
-            saveber = struct(sprintf("ber%dsnr%d", thread, snr_db), num_errors / num_symbs);
-            save_out(filename, saveber);
+            bers(thread) = num_errors / (num_symbs * bits_per_symb);
         end
+%         frame_sz = 1000;
+%         if mod(symbs_per_worker, frame_sz) ~= 0
+%             error("invalid frame size.");
+%         end
+% 
+%         parfor thread = 1:num_threads
+%             scaled_params = BerPlotterConstants(symbs_per_worker, modulation_order);
+%             sim = Simulator(tags, modes, @(a) a, scaled_params, snr_db=snr_db);
+%             sim.auto_align()
+%             delay = sim.tag_delays(1);
+%             symbols = zeros(int32(scaled_params.simstep_sz), int32(scaled_params.sim_sym_ratio), frame_sz);
+%             num_errors = 0;
+%     
+%             for jdx = 1:scaled_params.sim_sym_ratio
+%                     symbols(:, jdx, frame_sz) = sim.step();
+%             end
+%     
+%             for idx = 1:(symbs_per_worker / frame_sz)
+%                 symbols(:, :, 1) = symbols(:, :, frame_sz);
+%                 for kdx = 2:frame_sz
+%                     for jdx = 1:scaled_params.sim_sym_ratio
+%                         step = sim.step();
+%                         symbols(:, jdx, kdx) = step;
+%                     end
+%                 end
+%     
+%                 for jdx = 1:(frame_sz - 1)
+%                     curr_steps = symbols(:, :, jdx);
+%                     next_steps = symbols(:, :, jdx + 1);
+%                     frame = [curr_steps(:); next_steps(:)];
+%                     shifted_frame = delayseq(frame, -1 * delay);
+%                     true_symbol = shifted_frame(1:scaled_params.symb_sz);
+%                     demod_bits = sim.tags(1).demodulate((((idx - 1) * frame_sz) + jdx), true_symbol);
+%                     start = ((((idx - 1) * frame_sz) + jdx - 1) * bits_per_symb) + 1;
+%                     stop = start + bits_per_symb - 1;
+%                     expected = sim.tags(1).bits(start:stop).';
+%                     num_errors = num_errors + sum(expected ~= demod_bits);
+%                 end
+%             end
+%     
+%             bers(thread) = num_errors / (num_symbs * bits_per_symb);
+%         end
     
-        savetotal = struct(sprintf("totalbersnr%d", snr_db), sum(bers, "omitnan"));
+        savetotal = struct(replace(sprintf("totalber%dMsnr%d", modulation_order, snr_db), ...
+            "-", "NEG"), sum(bers, "omitnan"));
         save_out(filename, savetotal);
     end
 
 catch errors
 end
 
-delete(gcp);
+% delete(gcp);
 if ~isempty(errors)
     rethrow(errors);
 end

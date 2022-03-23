@@ -119,8 +119,7 @@ classdef OOKTag < bherber.thesis.tags.Tag
             correlated_ook = this.constellation_point(symb_num, signal);
             time_slice = (0:(1 / this.params.Fs):(double(this.params.symb_sz) * (1 / this.params.Fs) - (1 / this.params.Fs))) ...
                 + ((symb_num - 1) * double(this.params.symb_sz) * (1 / this.params.Fs));
-            carrier_slice = cos(2 * pi * this.params.Fc * time_slice);
-            mixed_energy = trapz(carrier_slice .^ 2);
+            mixed_energy = trapz((cos(2 * pi * this.params.Fc * time_slice)) .^ 2);
 
             % 4. Decide
             expected_amplitudes = this.params.m_ary_amplitudes .* ...
