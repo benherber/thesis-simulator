@@ -4,7 +4,7 @@ function [params, total_symbs] = BerPlotterConstants(num_symbs, modulation_order
         modulation_order double {mustBePositive} = 2;
     end
 
-    total_symbs = 6000;
+    total_symbs = 600;
 
     params = bherber.thesis.SimulationConstants( ...
                 2.4e9, ...   "Fc"

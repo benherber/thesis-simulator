@@ -120,11 +120,11 @@ classdef FSKTag < bherber.thesis.tags.Tag
             end
 
             correlated = this.constellation_point(symb_num, signal);
-            global freqs1; global freqs2; global e1; global e2;
-            freqs1 = [freqs1, this.freqs(1)];
-            e1 = [e1, correlated(1)];
-            freqs2 = [freqs2, this.freqs(2)];
-            e2 = [e2, correlated(2)];
+%             global freqs1; global freqs2; global e1; global e2;
+%             freqs1 = [freqs1, this.freqs(1)];
+%             e1 = [e1, correlated(1)];
+%             freqs2 = [freqs2, this.freqs(2)];
+%             e2 = [e2, correlated(2)];
 %             scatter(gca, this.freqs(1), correlated(1), "filled", "b");
 %             scatter(gca, this.freqs(2), correlated(2), "filled", "r");
 
