@@ -59,7 +59,7 @@ classdef FSKTag < bherber.thesis.tags.Tag
             gain = this.vanatta_gain(this.params.num_elements, this.params.Fc, this.params.Fc);
             square_wvs = square(2 .* pi .* this.freqs .* details.time_slice);
             
-            all_symbol_values = square_wvs .* details.carrier_slice .* gain;
+            all_symbol_values = square_wvs .* details.carrier_slice .* pathloss .* gain;
 
             res = zeros(size(details.data));
             for idx = 1:length(res)
@@ -68,12 +68,12 @@ classdef FSKTag < bherber.thesis.tags.Tag
 
             if ~isnan(this.snr_db)
                 Tsample = 1 / this.params.Fs;
-                Tsymbol = 1/ this.params.symb_freq;
+                Tsymbol = 1 / this.params.symb_freq;
                 snr_converted = bherber.thesis.channel_models.AWGNChannelModel.EbNo_to_snr(...
                     this.snr_db, Tsample, Tsymbol, this.params.m_ary_modulation, this.complex_noise);
                 linear_snr = 10 ^ (snr_converted / 10);
                 expected_amplitude = this.params.amplitude * pathloss * gain;
-                linear_carrier_power = (expected_amplitude ^ 2) / 2; % ASSUMPTION: Uniform Random Data
+                linear_carrier_power = (expected_amplitude ^ 2) / 4; % ASSUMPTION: Uniform Random Data
                 signal_noise = bherber.thesis.channel_models.AWGNChannelModel.noise(...
                     length(details.time_slice), linear_carrier_power, linear_snr, this.complex_noise) + ...
                     bherber.thesis.channel_models.AWGNChannelModel.noise(...
@@ -105,7 +105,7 @@ classdef FSKTag < bherber.thesis.tags.Tag
             mixed = signal .* all_symbol_values;
 
             % 2. Correlate
-            correlated = trapz(mixed, 2);
+            correlated = abs(trapz(mixed, 2)); %abs(trapz(mixed, 2));
             points = correlated;
 
         end
@@ -120,6 +120,13 @@ classdef FSKTag < bherber.thesis.tags.Tag
             end
 
             correlated = this.constellation_point(symb_num, signal);
+            global freqs1; global freqs2; global e1; global e2;
+            freqs1 = [freqs1, this.freqs(1)];
+            e1 = [e1, correlated(1)];
+            freqs2 = [freqs2, this.freqs(2)];
+            e2 = [e2, correlated(2)];
+%             scatter(gca, this.freqs(1), correlated(1), "filled", "b");
+%             scatter(gca, this.freqs(2), correlated(2), "filled", "r");
 
 %             gca;
 %             hold on

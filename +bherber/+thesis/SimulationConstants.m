@@ -66,7 +66,7 @@ classdef SimulationConstants < handle
 %             this.freq_channels = [struct("f0", 4e6, "f1", 8e6)];
             this.freq_channels = zeros(num_channels, m_ary_scheme);
             freq_spacing = 1 / (2 * (1 / symb_freq));
-            bands = 0:freq_spacing:((m_ary_scheme - 1) * freq_spacing);
+            bands = linspace(0, freq_spacing, m_ary_scheme);
             for idx = 1:num_channels
                 this.freq_channels(idx, :) = Fb_base + bands + ...
                     ((idx - 1) * (Fb_channel_spacing + bands(end)));
