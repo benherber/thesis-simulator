@@ -92,7 +92,8 @@ classdef Simulator < handle
                     case bherber.thesis.TagType.FREQ_HOP
                         curr_tag = bherber.thesis.tags.FreqHopTag(...
                             tags(1, idx), tags(2, idx), tags(3, idx), tag_modes(idx), ...
-                            this.bits(idx, :), this.params, this.params.freq_channels, hopsets(idx, :));
+                            this.bits(idx, :), this.params, this.params.freq_channels, hopsets(idx, :), ...
+                            snr_db=options.snr_db, complex_noise=options.complex_noise);
                 end
 
                 if isempty(tags_objs)

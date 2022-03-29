@@ -33,8 +33,8 @@ classdef FSKTag < bherber.thesis.tags.Tag
                 bits (1, :) {mustBeNonmissing, mustBeInRange(bits, 0, 1)} % bitstream
                 sim_params bherber.thesis.SimulationConstants % Simulation parameters
                 frequency_subband (1, :)
-                options.snr_db = NaN;
-                options.complex_noise = false;
+                options.snr_db (1, 1) double = NaN;
+                options.complex_noise (1, 1) logical = false;
             end
 
             this@bherber.thesis.tags.Tag(x, y, z, mode, bits, sim_params, ...
@@ -105,21 +105,21 @@ classdef FSKTag < bherber.thesis.tags.Tag
             mixed = signal .* all_symbol_values;
 
             % 2. Correlate
-            correlated = abs(trapz(mixed, 2)); %abs(trapz(mixed, 2));
+            correlated = (trapz(mixed, 2)); %abs(trapz(mixed, 2));
             points = correlated;
 
         end
     
 % ----------------------------------------------------------------------- %
     
-    function res_bits = demodulate(this, symb_num, signal)
+        function res_bits = demodulate(this, symb_num, signal)
             arguments
                 this bherber.thesis.tags.FSKTag
                 symb_num double {mustBePositive}
                 signal (1, :)
             end
 
-            correlated = this.constellation_point(symb_num, signal);
+            correlated = real(this.constellation_point(symb_num, signal));
 %             global freqs1; global freqs2; global e1; global e2;
 %             freqs1 = [freqs1, this.freqs(1)];
 %             e1 = [e1, correlated(1)];

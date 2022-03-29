@@ -20,7 +20,7 @@ try
 
     bers = NaN(1, num_threads);
 
-    for snr_db = linspace(0, 18, 7)
+    for snr_db = linspace(0, 18, 10)
         parfor thread = 1:num_threads
             scaled_params = BerPlotterConstants(symbs_per_worker, modulation_order);
             sim = Simulator(tags, modes, @(a) a, scaled_params, snr_db=snr_db, complex_noise=true);
