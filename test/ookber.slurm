@@ -18,4 +18,4 @@ echo "Executing on the machine:" $(hostname)
 module purge
 module load matlab/R2021b
 
-matlab -nodisplay -nosplash -r test_OOKBerPlotterSlurm
+matlab -nodisplay -nosplash -r "addpath(genpath(\"..\"));test_OOKBerPlotterSlurm;exit"

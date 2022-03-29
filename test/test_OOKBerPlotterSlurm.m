@@ -1,7 +1,7 @@
 clear; clc;
-import bherber.thesis.Simulator bherber.thesis.TagType
 addpath(genpath(".."));
-filename = sprintf("data/ookbers::%s.mat", datestr(now, "mm-dd-yy-HH:MM:SS"));
+import bherber.thesis.Simulator bherber.thesis.TagType
+filename = sprintf("../data/ookbers::%s.mat", datestr(now, "mm-dd-yy-HH:MM:SS"));
 save(filename);
 
 errors = [];
@@ -13,7 +13,7 @@ try
     end
     pool = gcp;
     num_threads = pool.NumWorkers;
-    modulation_order = uint16(str2double(getenv("SLURM_ARRAY_TASK_ID")));
+    modulation_order = (str2double(getenv("SLURM_ARRAY_TASK_ID")));
     [params, num_symbs] = BerPlotterConstants(1, modulation_order);
     
     symbs_per_worker = ceil(num_symbs / num_threads);
@@ -25,7 +25,7 @@ try
 
     bers = NaN(1, num_threads);
 
-    for snr_db = linspace(0, 24, 7)
+    for snr_db =linspace(0, 24, 13) 
         parfor thread = 1:num_threads
             scaled_params = BerPlotterConstants(symbs_per_worker, modulation_order);
             sim = Simulator(tags, modes, @(a) a, scaled_params, snr_db=snr_db, complex_noise=true);
