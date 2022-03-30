@@ -1,4 +1,4 @@
-% --------------------------------------- %
+%FSKTAG 
 % Frequency-Shift Keying Backscatter Tag  %
 % Name   : FSKTag.m                       %
 % Author : Benjamin Herber                %
@@ -49,8 +49,8 @@ classdef FSKTag < bherber.thesis.tags.Tag
             %STEP one simulation step using FSK modulation.
     
             if ~this.is_active
-                    res = zeros(1, this.params.simstep_sz);
-                    return
+                res = zeros(1, int32(this.params.simstep_sz));
+                return
             end
     
             details = this.step_data();
@@ -148,3 +148,4 @@ classdef FSKTag < bherber.thesis.tags.Tag
         end
     end
 end
+

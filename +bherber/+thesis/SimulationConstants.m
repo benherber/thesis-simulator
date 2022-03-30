@@ -3,7 +3,7 @@ classdef SimulationConstants < handle
     %   All constants needed to run a simulation of a basestation with
     %   multiple backscatter tags in a system.
 
-    properties (GetAccess = public, SetAccess = private)
+    properties (GetAccess = public, SetAccess = immutable)
         Fc % Carrier Frequency
         freq_channels % Frequency channels for fsk/FSK-FH
         wavelen {mustBePositive} % Wavelength of Carrier
@@ -24,6 +24,7 @@ classdef SimulationConstants < handle
         num_elements {mustBePositive} % Number of elements in Van Atta Array
         m_ary_modulation {mustBePositive, mustBeGreaterThanOrEqual(m_ary_modulation, 2)} % M-Ary Mod. Scheme
         m_ary_amplitudes % Amplitudes for M-Ary ASK
+        slots_per_frame {mustBePositive} % Number of TDM slots in a given frame
     end
 
     methods

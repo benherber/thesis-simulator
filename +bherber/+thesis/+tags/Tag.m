@@ -1,4 +1,4 @@
-% ------------------------ %
+%TAG --- Tag.m not found. Showing help for tagm instead. ---
 % Back Scatter Tag         %
 % Name   : Tag.m           %
 % Author : Benjamin Herber %
@@ -257,3 +257,4 @@ function str = bin2str(bin)
     end
 
 end
+

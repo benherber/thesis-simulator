@@ -1,4 +1,4 @@
-% ---------------------------------- %
+%FREQHOPTAG 
 % Frequency-Hopping Backscatter Tag  %
 % Name   : FreqHopTag.m              %
 % Author : Benjamin Herber           %
@@ -52,7 +52,7 @@ classdef FreqHopTag < bherber.thesis.tags.Tag
             %STEP one simulation step using FSK modulation.
     
             if ~this.is_active
-                res = zeros(1, this.params.simstep_sz);
+                res = zeros(1, int32(this.params.simstep_sz));
                 return
             end
     
@@ -154,3 +154,4 @@ classdef FreqHopTag < bherber.thesis.tags.Tag
         end
     end
 end
+
