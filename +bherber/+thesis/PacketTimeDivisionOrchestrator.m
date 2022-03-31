@@ -63,7 +63,7 @@ classdef PacketTimeDivisionOrchestrator < handle
                 res = this.tag.step();
 
                 if (mod(curr_step_in_frame, this.slot_size) == 1) ...
-                    && ((curr_slot - 1) == this.slot_select)
+                    && (((curr_slot - 1) == this.slot_select) || (curr_step_in_frame == 1))
                     res(1:delay_samples) = this.prev_data(1:delay_samples);
                 end
 
