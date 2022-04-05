@@ -25,6 +25,7 @@ classdef SimulationConstants < handle
         m_ary_modulation {mustBePositive, mustBeGreaterThanOrEqual(m_ary_modulation, 2)} % M-Ary Mod. Scheme
         m_ary_amplitudes % Amplitudes for M-Ary ASK
         slots_per_frame {mustBePositive} % Number of TDM slots in a given frame
+        preamble_len {mustBePositive} % Length in bits of preamble ids
     end
 
     methods
@@ -42,7 +43,8 @@ classdef SimulationConstants < handle
                 amplitude, ...
                 num_elements, ...
                 pattern_len, ...
-                m_ary_scheme ...
+                m_ary_scheme, ...
+                preamble_len ...
             )
             %SIMULATION_CONSTANTS Construct an instance of constants
             %   Define constants for the simulation
@@ -61,6 +63,7 @@ classdef SimulationConstants < handle
                 num_elements
                 pattern_len = 0
                 m_ary_scheme = 2
+                preamble_len = 16
             end
 
             this.Fc = Fc;
@@ -93,6 +96,7 @@ classdef SimulationConstants < handle
             this.num_elements = num_elements;
             this.m_ary_modulation = m_ary_scheme;
             this.m_ary_amplitudes = linspace(0, amplitude, m_ary_scheme);
+            this.preamble_len = preamble_len;
         end
 
     end

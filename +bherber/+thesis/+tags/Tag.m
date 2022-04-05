@@ -5,7 +5,7 @@
 % Date   : Spring 2021     %
 % ------------------------ %
 
-classdef Tag < handle
+classdef Tag < handle & matlab.mixin.Heterogeneous
     %TAG model
     %   Backscatter tag model of a passive Van Atta configuration
 
