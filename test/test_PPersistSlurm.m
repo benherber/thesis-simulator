@@ -6,11 +6,11 @@ save(filename);
 
 CollisionFactories;
 
-if ~isempty(getenv("SLURM_ARRAY_TASK_ID"))
-    ppersist = str2double(getenv("SLURM_ARRAY_TASK_ID"));
-else
-    ppersist = 10;
-end
+% if ~isempty(getenv("SLURM_ARRAY_TASK_ID"))
+%     ppersist = str2double(getenv("SLURM_ARRAY_TASK_ID"));
+% else
+ppersist = 10;
+% end
 
 
 num_packets = 1000;

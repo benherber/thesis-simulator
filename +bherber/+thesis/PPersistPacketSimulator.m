@@ -9,6 +9,7 @@ classdef PPersistPacketSimulator < handle
         tag_locs (3, :) double
         tag_mode (1, 1) bherber.thesis.TagType 
         num_slots (1, 1) double
+        ppersist (1, 1) double
         slot_selects (1, :) double
         tag_preambles (:, :) {mustBeFinite}
         curr_frame int64
@@ -22,7 +23,7 @@ classdef PPersistPacketSimulator < handle
 
     methods
         function this = PPersistPacketSimulator(num_packets, tag_locs, tag_mode, ...
-                num_slots, sim_params, options)
+                ppersist, sim_params, options)
             %SIMULATOR constructor
             %   Initialize and start simulator.
 
@@ -30,7 +31,7 @@ classdef PPersistPacketSimulator < handle
                 num_packets (1, 1) double
                 tag_locs (3, :) double
                 tag_mode (1, 1) bherber.thesis.TagType 
-                num_slots (1, 1) double
+                ppersist (1, 1) double
                 sim_params (1, 1) bherber.thesis.SimulationConstants
                 options.bitstream (1, :) double = [];
                 options.snr_db (1, 1) double = NaN;
@@ -38,10 +39,11 @@ classdef PPersistPacketSimulator < handle
             end
 
             this.params = sim_params;
-            this.num_slots = num_slots;
+            this.num_slots = 1;
             this.tag_mode = tag_mode;
             this.tag_locs = tag_locs;
             this.options = options;
+            this.ppersist = ppersist;
 
             % Init Tag ID's
             preamble_len = this.params.preamble_len;
@@ -133,8 +135,7 @@ classdef PPersistPacketSimulator < handle
                         error("Unsupported type: %s", this.tag_mode);
                 end
 
-                rand_slot = randi([1, this.num_slots], 1, 1);
-                this.slot_selects(idx) = rand_slot;
+                rand_slot = randi([1, this.ppersist], 1, 1);
                 if rand_slot ~= 1
                     curr_tag.deactivate();
                 end
@@ -145,6 +146,7 @@ classdef PPersistPacketSimulator < handle
                     tags_objs(idx) = curr_tag; 
                 end
 
+                this.slot_selects(idx) = 1;
             end
             this.tags = tags_objs;
         end
@@ -163,12 +165,11 @@ classdef PPersistPacketSimulator < handle
 
             this.generate_tags();
 
-            res = zeros(1, int32((this.params.num_symbs + 1) * ...
+            res = zeros(1, int32(this.num_slots * (this.params.num_symbs + 1) * ...
                         this.params.sim_sym_ratio * this.params.simstep_sz));
             for idx = 1:length(this.tags)
-                 data = bherber.thesis.orchestrate_tdm( ...
-                    1, 1, this.tags(idx));
-                 res = res + data;
+                res = res + bherber.thesis.orchestrate_tdm( ...
+                    this.num_slots, this.slot_selects(idx), this.tags(idx));
             end
 
             this.curr_frame = this.curr_frame + 1;
@@ -199,8 +200,8 @@ classdef PPersistPacketSimulator < handle
 
             slot_size = int32((this.params.num_symbs + 1) * ...
                 this.params.sim_sym_ratio * this.params.simstep_sz);
-            slots = reshape(frame, slot_size, 1);
-            res = delayseq(slots(:, 1), -1 * this.tag_delays(idx)).';
+            slots = reshape(frame, slot_size, this.num_slots);
+            res = delayseq(slots(:, this.slot_selects(idx)), -1 * this.tag_delays(idx)).';
         end
 
 % ----------------------------------------------------------------------- %
@@ -213,19 +214,14 @@ classdef PPersistPacketSimulator < handle
             frame = this.step();
             clash = 0;
             for idx = 1:size(this.tag_locs, 2)
-                if ~this.tags(idx).is_active
-                    continue;
-                end
-
-                symbols = reshape(this.deframeify(idx, frame), [], this.params.num_symbs + 1);
-                resbits = zeros(this.params.num_symbs, 1);
-                for jdx = 1:this.params.num_symbs
-                    resbits(jdx) = this.tags(idx).demodulate(jdx, symbols(:, jdx).');
-                end
-
-                if logical(biterr(this.tags(idx).bits(1:this.params.num_symbs), resbits))
-                    clash = 1;
-                    return;
+                if this.tags(idx).is_active
+                    symbols = reshape(this.deframeify(idx, frame), [], this.params.num_symbs + 1);
+                    resbits = zeros(this.params.num_symbs, 1);
+                    for jdx = 1:this.params.num_symbs
+                        resbits(jdx) = this.tags(idx).demodulate(jdx, symbols(:, jdx).');
+                    end
+    
+                    clash = clash + logical(biterr(this.tags(idx).bits(1:this.params.num_symbs), resbits));
                 end
             end
         end

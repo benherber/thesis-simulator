@@ -25,7 +25,7 @@ for num_tags = ceil(linspace(1, max_activity, 50))
     clashes = zeros(1, num_threads);
     packets_per_thread = ceil(num_packets / num_threads);
     
-    for idx = 1:num_threads
+    parfor idx = 1:num_threads
         sim = make_sim(packets_per_thread, num_tags, tag_type, ppersist, params);
         for ignore__ = 1:packets_per_thread
             clashes(idx) = clashes(idx) + double(sim.clash_in_next_frame());
