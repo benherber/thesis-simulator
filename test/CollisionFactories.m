@@ -1,4 +1,4 @@
-import bherber.thesis.PPersistPacketSimulator ...
+import bherber.thesis.PacketSimulator ...
     bherber.thesis.SimulationConstants
 
 id_len = 16;
@@ -22,7 +22,7 @@ make_params = @(num_channels) bherber.thesis.SimulationConstants( ...
             );
 
 make_sim = @(num_packets, num_tags, type, ppersist, params) ...
-    PPersistPacketSimulator(num_packets, repelem([1;0;0], 1, num_tags), type, ppersist, params);
+    PacketSimulator(num_packets, repelem([1;0;0], 1, num_tags), type, ppersist, params);
 
 if isempty(gcp("nocreate"))
   pc = parcluster("local");

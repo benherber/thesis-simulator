@@ -1,7 +1,7 @@
 clear; clc;
 addpath(genpath(".."));
 import bherber.thesis.PacketSimulator bherber.thesis.TagType
-filename = sprintf("../data/freqtdmcollisions::%s.mat", datestr(now, "mm-dd-yy-HH:MM:SS"));
+filename = sprintf("../data/fullfreqppersistcollisions::%s.mat", datestr(now, "mm-dd-yy-HH:MM:SS"));
 save(filename);
 
 CollisionFactories;
@@ -33,7 +33,7 @@ for num_tags = ceil(linspace(1, max_activity * num_channels, 50))
     end
 
     clash_percentage = sum(clashes, "all") / (packets_per_thread * num_threads * num_tags);
-    save_out(filename, struct(sprintf("tags%dnumchannels%dnumslots%d", ...
+    save_out(filename, struct(sprintf("tags%dnumchannels%dppersist%d", ...
         num_tags, num_channels, num_slots), clash_percentage));
     
 end
